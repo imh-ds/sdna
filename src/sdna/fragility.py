@@ -3,6 +3,7 @@
 from dataclasses import replace
 from itertools import combinations
 from math import comb
+from collections.abc import Iterable
 
 import numpy as np
 
@@ -11,7 +12,13 @@ from sdna.influence import analytic_influence
 from sdna.results import FragilityResult, FragilityTarget
 from sdna.validation import validate_data
 
-__all__ = ["FragilityTarget", "certify_fragility", "criterion_met", "greedy_fragility"]
+__all__ = [
+    "FragilityTarget",
+    "certify_fragility",
+    "criterion_met",
+    "fragility_profile",
+    "greedy_fragility",
+]
 
 
 def criterion_met(
@@ -90,6 +97,40 @@ def greedy_fragility(
         cases=tuple(chosen),
         trajectory=np.asarray(trajectory),
     )
+
+
+def fragility_profile(
+    X: np.ndarray,
+    edge: tuple[int, int],
+    fractions: Iterable[float],
+    shrinkage: float | None = None,
+    search_cap: int | None = None,
+) -> dict[float, FragilityResult]:
+    """Run independent relative-fragility searches for explicit fractions.
+
+    The returned dictionary preserves the input order. Every fraction gets a
+    separate search and result, so its selected coalition is target-specific.
+    Defaults belong in reporting code; this low-level function requires the
+    caller to provide the fractions explicitly.
+    """
+    requested = tuple(float(fraction) for fraction in fractions)
+    if not requested:
+        raise ValueError("fractions must contain at least one value")
+    if len(set(requested)) != len(requested):
+        raise ValueError("fractions must not contain duplicates")
+    if any(not np.isfinite(fraction) or not 0.0 < fraction < 1.0 for fraction in requested):
+        raise ValueError("fractions must be between 0 and 1")
+
+    return {
+        fraction: greedy_fragility(
+            X,
+            edge=edge,
+            target=FragilityTarget("relative", fraction),
+            shrinkage=shrinkage,
+            search_cap=search_cap,
+        )
+        for fraction in requested
+    }
 
 
 def certify_fragility(
