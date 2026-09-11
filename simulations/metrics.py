@@ -67,7 +67,9 @@ def partial_rank_association(
     second_residual = _ranks(second) - design @ np.linalg.lstsq(
         design, _ranks(second), rcond=None
     )[0]
-    if np.std(first_residual) == 0.0 or np.std(second_residual) == 0.0:
+    if np.allclose(first_residual, 0.0, rtol=0.0, atol=1e-12) or np.allclose(
+        second_residual, 0.0, rtol=0.0, atol=1e-12
+    ):
         return 0.0
     return float(np.corrcoef(first_residual, second_residual)[0, 1])
 
@@ -75,7 +77,7 @@ def partial_rank_association(
 def influence_metrics(
     influence: Iterable[float], planted_cases: Iterable[int], k: int
 ) -> dict[str, float]:
-    """Summarize top-k recovery and absolute influence concentration."""
+    """Summarize top-k recovery and planted share of total absolute influence."""
     values = _as_vector(influence)
     planted = set(int(index) for index in planted_cases)
     if not planted or k < 1:

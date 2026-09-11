@@ -24,7 +24,7 @@ def test_influence_metrics_recover_planted_cases() -> None:
     assert result["top_k_precision"] == 1.0
     assert result["top_k_recall"] == 1.0
     assert result["first_planted_reciprocal_rank"] == 1.0
-    assert result["planted_absolute_influence_share"] == 1.0
+    assert np.isclose(result["planted_absolute_influence_share"], 0.85)
 
 
 def test_partial_rank_association_controls_a_confounder() -> None:

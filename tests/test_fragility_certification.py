@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from sdna.estimation import fit_network
 from sdna.fragility import FragilityTarget, certify_fragility, greedy_fragility
 from sdna.results import FragilityResult
 
