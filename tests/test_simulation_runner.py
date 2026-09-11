@@ -5,6 +5,44 @@ import simulations.run_simulation as simulation_runner
 from simulations.run_simulation import replication_seeds, run_simulation
 
 
+def test_runner_dispatches_all_falsification_scenarios() -> None:
+    config = {
+        "seed": 123,
+        "replications": 1,
+        "n_values": [8],
+        "p_values": [3],
+        "population_partial_r": [0.2],
+        "scenarios": [
+            "clean_planted_edge",
+            "single_influential_case",
+            "coalition_contamination",
+            "mixture_subgroup",
+            "heavy_tails",
+            "collinearity_stress",
+        ],
+        "contamination_cases": [1],
+        "fragility_targets": [0.5],
+        "certification_combination_budget": 20,
+        "calibration_simulations": 1,
+        "bootstrap_samples": 2,
+    }
+
+    rows = simulation_runner._run(config, smoke=False)
+
+    assert {row["scenario"] for row in rows} == set(config["scenarios"])
+
+
+def test_smoke_workload_uses_benchmark_derived_limits() -> None:
+    config = {
+        "replications": 20,
+        "calibration_simulations": 100,
+        "bootstrap_samples": 200,
+    }
+
+    assert simulation_runner.workload_settings(config, smoke=True) == (5, 10, 25)
+    assert simulation_runner.workload_settings(config, smoke=False) == (20, 100, 200)
+
+
 def test_replication_seeds_are_deterministic_and_independent() -> None:
     first = replication_seeds(20260910, 4)
     second = replication_seeds(20260910, 4)
