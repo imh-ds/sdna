@@ -1,0 +1,31 @@
+{
+  "R": {
+    "Version": "4.6.0",
+    "Repositories": [
+      {
+        "Name": "CRAN",
+        "URL": "https://cloud.r-project.org"
+      }
+    ]
+  },
+  "Packages": {
+    "BGGM": {
+      "Package": "BGGM",
+      "Version": "2.0.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "bootnet": {
+      "Package": "bootnet",
+      "Version": "1.6",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "qgraph": {
+      "Package": "qgraph",
+      "Version": "1.9.8",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    }
+  }
+}

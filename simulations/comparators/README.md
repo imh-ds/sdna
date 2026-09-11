@@ -14,9 +14,19 @@ The reference pins for this comparator milestone are:
 | `bootnet` | `1.6` | EBICglasso estimation and bootstrap workflows |
 | `BGGM` | `2.0.0` | Bayesian Gaussian graphical model |
 
-Install these exact versions in an `renv` project and commit the generated
-`renv.lock` file before running a publication comparison. Each script checks
-the installed versions and fails rather than silently using a different API.
+The committed [`renv.lock`](renv.lock) records the R version and direct
+comparator package pins. From this directory, restore the environment before
+running a comparison:
+
+```text
+Rscript -e "renv::restore(lockfile = 'renv.lock', prompt = FALSE)"
+```
+
+The lockfile is intentionally minimal until a networked R environment resolves
+the full transitive dependency set; `renv::restore()` should be followed by an
+`renv::snapshot()` in that environment if a fully materialized lock is needed.
+Each script checks the installed direct package versions and fails rather than
+silently using a different API.
 
 ## Inputs and outputs
 
@@ -24,7 +34,7 @@ Both scripts accept a numeric CSV data matrix and write a CSV result. The
 intended neutral edge schema is row-oriented and includes:
 
 ```text
-method,analysis_type,edge,node_i,node_j,estimate,lower,upper,statistic,prior
+method,analysis_type,edge,node_i,node_j,estimate,lower,upper,statistic,prior,seed
 ```
 
 Additional comparator-specific columns are permitted. Python summarization
@@ -45,6 +55,16 @@ includes iteration count, seed, and prior description in its output. Posterior
 summaries are not frequentist confidence intervals and must remain labeled as
 such.
 
+Both scripts accept an explicit seed after their optional resampling/iteration
+count. The default seed is `20260910`, and the selected seed is written to the
+CSV output:
+
+```text
+Rscript ebicglasso.R input.csv output.csv 1000 20260910
+Rscript bggm.R input.csv output.csv 10000 20260910
+```
+
 Before making claims about comparator behavior, run these scripts against the
 same versioned datasets and settings as the Python methods, retain `sessionInfo()`
-and `renv.lock`, and consume only the neutral CSV outputs in downstream code.
+and the restored environment, and consume only the neutral CSV outputs in
+downstream code.

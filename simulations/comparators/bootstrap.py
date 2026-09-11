@@ -18,6 +18,7 @@ class BootstrapResult:
     standard_error: float
     method: str
     shrinkage_mode: str
+    rejected_resamples: int = 0
 
 
 def shrinkage_bootstrap(
@@ -48,12 +49,26 @@ def shrinkage_bootstrap(
     fixed_lambda = fitted.shrinkage
     random = np.random.default_rng() if rng is None else rng
     samples = np.empty(n_boot, dtype=float)
-    for index in range(n_boot):
+    accepted = 0
+    rejected = 0
+    attempts = 0
+    max_attempts = max(100, 100 * n_boot)
+    while accepted < n_boot:
+        attempts += 1
+        if attempts > max_attempts:
+            raise RuntimeError(
+                "unable to obtain enough nondegenerate bootstrap resamples; "
+                "check that each variable has sufficient variation"
+            )
         selected = random.integers(0, n, size=n)
+        if np.any(np.std(data[selected], axis=0, ddof=1) == 0.0):
+            rejected += 1
+            continue
         bootstrap_fit = fit_network(
             data[selected], shrinkage=None if reestimate_shrinkage else fixed_lambda
         )
-        samples[index] = bootstrap_fit.partial_correlation[i, j]
+        samples[accepted] = bootstrap_fit.partial_correlation[i, j]
+        accepted += 1
     alpha = (1.0 - confidence) * 100.0
     interval = (
         float(np.percentile(samples, alpha / 2.0)),
@@ -67,4 +82,5 @@ def shrinkage_bootstrap(
         standard_error=standard_error,
         method="shrinkage_bootstrap",
         shrinkage_mode="reestimated_lambda" if reestimate_shrinkage else "fixed_lambda",
+        rejected_resamples=rejected,
     )

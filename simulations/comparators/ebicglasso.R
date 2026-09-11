@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # EBICglasso / bootnet comparator.
-# Usage: Rscript ebicglasso.R input.csv output.csv [n_boots]
+# Usage: Rscript ebicglasso.R input.csv output.csv [n_boots] [seed]
 
 required <- c(qgraph = "1.9.8", bootnet = "1.6")
 for (pkg in names(required)) {
@@ -15,11 +15,15 @@ for (pkg in names(required)) {
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 2L) {
-  stop("Usage: Rscript ebicglasso.R input.csv output.csv [n_boots]")
+  stop("Usage: Rscript ebicglasso.R input.csv output.csv [n_boots] [seed]")
 }
 input_path <- args[[1L]]
 output_path <- args[[2L]]
 n_boots <- if (length(args) >= 3L) as.integer(args[[3L]]) else 0L
+seed <- if (length(args) >= 4L) as.integer(args[[4L]]) else 20260910L
+if (is.na(n_boots) || n_boots < 0L) stop("n_boots must be a non-negative integer")
+if (is.na(seed)) stop("seed must be an integer")
+set.seed(seed)
 data <- utils::read.csv(input_path, check.names = FALSE)
 if (ncol(data) < 2L || any(!vapply(data, is.numeric, logical(1)))) {
   stop("input.csv must contain at least two numeric variable columns")
@@ -40,6 +44,8 @@ result <- data.frame(
   upper = NA_real_,
   statistic = NA_real_,
   prior = NA_character_,
+  seed = seed,
+  bootstrap_replicates = n_boots,
   stringsAsFactors = FALSE
 )
 

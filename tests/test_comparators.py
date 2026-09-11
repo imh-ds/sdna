@@ -1,3 +1,5 @@
+from typing import cast
+
 import numpy as np
 import pytest
 
@@ -30,6 +32,29 @@ def test_bootstrap_can_reestimate_lambda(gaussian_data: np.ndarray) -> None:
     )
 
     assert result.shrinkage_mode == "reestimated_lambda"
+
+
+def test_bootstrap_redraws_degenerate_resamples(gaussian_data: np.ndarray) -> None:
+    class DegenerateFirstRng:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def integers(self, low: int, high: int, size: int) -> np.ndarray:
+            del low
+            self.calls += 1
+            if self.calls == 1:
+                return np.zeros(size, dtype=int)
+            return np.arange(size, dtype=int) % high
+
+    result = shrinkage_bootstrap(
+        gaussian_data,
+        edge=(0, 1),
+        n_boot=2,
+        rng=cast(np.random.Generator, DegenerateFirstRng()),
+    )
+
+    assert result.rejected_resamples == 1
+    assert result.samples.shape == (2,)
 
 
 def test_wald_benchmark_labels_ordinary_partial_assumption(gaussian_data: np.ndarray) -> None:

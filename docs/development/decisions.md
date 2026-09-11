@@ -141,3 +141,92 @@ The original supplement remains available in the
   inputs and should be reported with the underlying influence definition.
   Influence-signature clustering is deferred.
 - **Status:** Implemented in `src/sdna/diagnostics.py`.
+
+## Review corrections 1–8
+
+This section records the decisions made in response to the comprehensive
+review of Tasks 1–17. These entries preserve the correction, rationale, and
+implementation consequence rather than silently changing an earlier record.
+
+### Correction 1 — Preserve the shrinkage value used for certification
+
+- **Decision:** Store the fitted shrinkage value on `FragilityResult`; when
+  certification is requested, reuse that value by default and reject an
+  explicitly supplied mismatch.
+- **Rationale:** Certification must evaluate the same estimand as the greedy
+  result. Replacing its shrinkage value could certify a different network.
+- **Consequence:** `certify_fragility` cannot silently certify with the wrong
+  shrinkage parameter.
+
+### Correction 2 — Execute the complete simulation workflow
+
+- **Decision:** The simulation runner computes calibration, Wald, and
+  shrinkage-bootstrap outputs using independent child seeds, and records the
+  fragility target and simulation/bootstrap counts in each row.
+- **Rationale:** Placeholder comparator fields do not demonstrate the intended
+  end-to-end use case or provide an auditable randomization scheme.
+- **Consequence:** A censored reference search is represented explicitly by a
+  missing reference tail probability rather than an invented value.
+
+### Correction 3 — Freeze a greedy-failure regression fixture
+
+- **Decision:** Keep a deterministic 12-by-4 fixture whose greedy result uses
+  four deletions while bounded exhaustive search finds an exact minimum of
+  three.
+- **Rationale:** The fixture makes the distinction between a greedy upper bound
+  and a certified minimum executable and prevents a regression toward treating
+  greedy search as exact.
+- **Consequence:** The greedy/exhaustive distinction is permanently covered by
+  regression tests.
+
+### Correction 4 — Align exact LOO with estimator sample validation
+
+- **Decision:** Require at least four rows before exact LOO influence is run,
+  because each deletion leaves one fewer row and the estimator requires at
+  least three.
+- **Rationale:** The public validation rule should fail before the first
+  deletion rather than producing an inconsistent per-refit error.
+- **Consequence:** Small samples receive one predictable, explicit error.
+
+### Correction 5 — Make mixture truth metadata describe the mixture
+
+- **Decision:** Mixture simulation metadata reports the mixture-weighted
+  covariance, precision, and partial-correlation truth; subgroup labels remain
+  available separately for contamination diagnostics.
+- **Rationale:** Reporting the base subgroup truth as the truth for a mixed
+  sample is potentially misleading.
+- **Consequence:** The reported truth corresponds to the population generating
+  the simulated mixture while retaining subgroup provenance.
+
+### Correction 6 — Learn incremental AUC scores instead of equal-weighting them
+
+- **Decision:** Fit least-squares linear-probability scores using learned
+  coefficients for the full and reduced models, then compute the incremental
+  AUC from those scores.
+- **Rationale:** An equal-weight sum of edge features is arbitrary and does not
+  represent a fitted incremental model.
+- **Consequence:** The metric is an in-sample benchmark and must not be
+  described as out-of-sample predictive performance.
+
+### Correction 7 — Redraw degenerate bootstrap samples
+
+- **Decision:** Reject bootstrap resamples with zero sample standard deviation
+  in any variable, redraw until the requested number of valid fits is reached,
+  record `rejected_resamples`, and fail clearly after a bounded number of
+  attempts.
+- **Rationale:** A degenerate resample can invalidate correlation and shrinkage
+  fitting. Returning fewer draws or allowing an opaque downstream failure would
+  make uncertainty summaries incomplete.
+- **Consequence:** `n_boot` counts successful nondegenerate draws, and the
+  rejection count is available for audit.
+
+### Correction 8 — Make comparator runs reproducible
+
+- **Decision:** Commit comparator environment pins in `simulations/comparators/renv.lock`,
+  accept explicit seeds in both R scripts, write the selected seed to their
+  neutral outputs, and retain `sessionInfo()` artifacts.
+- **Rationale:** Runtime version checks alone do not identify the environment or
+  random stream used for a comparator result.
+- **Consequence:** Comparator reruns have explicit environment, seed, and
+  session metadata; the lockfile still requires restoration in a networked R
+  environment before execution.
