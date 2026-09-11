@@ -69,6 +69,7 @@ class FragilityResult:
     greedy_count: int | None
     cases: tuple[int, ...]
     trajectory: np.ndarray
+    shrinkage: float
     certified: bool = False
     exact_minimum: int | None = None
     combinations_checked: int = 0

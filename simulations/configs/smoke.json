@@ -6,5 +6,8 @@
   "population_partial_r": [0.0, 0.4],
   "contamination_cases": [0, 3],
   "fragility_targets": [0.9, 0.7, 0.5, 0.3],
-  "certification_combination_budget": 1000
+  "certification_combination_budget": 1000,
+  "calibration_simulations": 3,
+  "bootstrap_samples": 10,
+  "bootstrap_confidence": 0.95
 }

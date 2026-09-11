@@ -10,7 +10,7 @@ import numpy as np
 from sdna.estimation import fit_network
 from sdna.influence import analytic_influence
 from sdna.results import FragilityResult, FragilityTarget
-from sdna.validation import validate_data
+from sdna.validation import validate_data, validate_shrinkage
 
 __all__ = [
     "FragilityTarget",
@@ -79,6 +79,7 @@ def greedy_fragility(
                 greedy_count=len(chosen),
                 cases=tuple(chosen),
                 trajectory=np.asarray(trajectory),
+                shrinkage=lam,
             )
         ranking = analytic_influence(current_fit).changes[:, i, j]
         direction = np.sign(full_value) or 1.0
@@ -96,6 +97,7 @@ def greedy_fragility(
         greedy_count=len(chosen) if reached else None,
         cases=tuple(chosen),
         trajectory=np.asarray(trajectory),
+        shrinkage=lam,
     )
 
 
@@ -150,12 +152,19 @@ def certify_fragility(
     if max_combinations < 1:
         raise ValueError("max_combinations must be positive")
 
+    stored_shrinkage = validate_shrinkage(greedy.shrinkage)
+    effective_shrinkage = (
+        stored_shrinkage if shrinkage is None else validate_shrinkage(shrinkage)
+    )
+    if not np.isclose(effective_shrinkage, stored_shrinkage, rtol=0.0, atol=1e-15):
+        raise ValueError("certification shrinkage does not match the greedy result")
+
     data = validate_data(X)
     n, p = data.shape
     i, j = greedy.edge
     if not (0 <= i < p and 0 <= j < p and i != j):
         raise ValueError("greedy result contains an invalid edge")
-    full_fit = fit_network(data, shrinkage=shrinkage)
+    full_fit = fit_network(data, shrinkage=effective_shrinkage)
     full_value = float(full_fit.partial_correlation[i, j])
     checked = 0
 
