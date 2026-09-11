@@ -26,3 +26,11 @@ class NetworkFit:
     partial_correlation: np.ndarray
     shrinkage: float
     diagnostics: NetworkDiagnostics
+
+
+@dataclass(frozen=True)
+class InfluenceResult:
+    """Case-level influence changes for a fitted network."""
+
+    changes: np.ndarray
+    method: str
