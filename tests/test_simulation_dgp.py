@@ -3,8 +3,8 @@ import pytest
 
 from simulations.dgp import (
     clean_planted_edge,
-    collinearity_stress,
     coalition_contamination,
+    collinearity_stress,
     construct_precision,
     heavy_tails,
     mixture_subgroup,

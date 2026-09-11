@@ -79,7 +79,7 @@ def influence_metrics(
 ) -> dict[str, float]:
     """Summarize top-k recovery and planted share of total absolute influence."""
     values = _as_vector(influence)
-    planted = set(int(index) for index in planted_cases)
+    planted = {int(index) for index in planted_cases}
     if not planted or k < 1:
         raise ValueError("planted_cases must be nonempty and k must be positive")
     if any(index < 0 or index >= values.size for index in planted):

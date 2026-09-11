@@ -25,7 +25,7 @@ def _validate_edge(edge: tuple[int, int], node_count: int) -> tuple[int, int]:
         raise ValueError("edge must contain exactly two node indices")
     i, j = edge
     if not isinstance(i, (int, np.integer)) or not isinstance(j, (int, np.integer)):
-        raise ValueError("edge indices must be integers")
+        raise TypeError("edge indices must be integers")
     if i < 0 or j < 0 or i >= node_count or j >= node_count or i == j:
         raise ValueError("edge must contain two distinct valid node indices")
     return int(i), int(j)

@@ -1,9 +1,9 @@
 """Greedy edge-fragility search with explicit stopping semantics."""
 
+from collections.abc import Iterable
 from dataclasses import replace
 from itertools import combinations
 from math import comb
-from collections.abc import Iterable
 
 import numpy as np
 

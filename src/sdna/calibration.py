@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from sdna.exceptions import CalibrationError
 from sdna.estimation import fit_network
+from sdna.exceptions import CalibrationError
 from sdna.fragility import greedy_fragility
 from sdna.results import CalibrationResult, FragilityTarget
 from sdna.validation import validate_data

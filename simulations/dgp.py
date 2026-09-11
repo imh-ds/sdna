@@ -149,7 +149,7 @@ def mixture_subgroup(
     _validate_dimensions(n, p, focal_edge)
     if not 0.0 < subgroup_fraction < 1.0:
         raise ValueError("subgroup_fraction must be between 0 and 1")
-    subgroup_size = max(1, int(round(n * subgroup_fraction)))
+    subgroup_size = max(1, round(n * subgroup_fraction))
     base_covariance, _ = _single_edge_model(p, focal_edge, 0.0)
     subgroup_covariance, _ = _single_edge_model(p, focal_edge, subgroup_partial)
     indices = tuple(sorted(rng.choice(n, size=subgroup_size, replace=False).tolist()))

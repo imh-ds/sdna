@@ -2,8 +2,8 @@ import numpy as np
 
 from simulations.metrics import (
     auc,
-    influence_metrics,
     incremental_auc,
+    influence_metrics,
     partial_rank_association,
     spearman_correlation,
 )

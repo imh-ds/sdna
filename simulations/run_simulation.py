@@ -6,7 +6,7 @@ import hashlib
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -173,7 +173,7 @@ def run_simulation(config_path: str | Path, output_path: str | Path, smoke: bool
     config_file = Path(config_path)
     output_file = Path(output_path)
     config = json.loads(config_file.read_text(encoding="utf-8"))
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     rows = _run(config, smoke=smoke)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with output_file.open("w", newline="", encoding="utf-8") as handle:
@@ -187,7 +187,7 @@ def run_simulation(config_path: str | Path, output_path: str | Path, smoke: bool
         "config_checksum": _checksum(config),
         "package_version": __version__,
         "started_at": started.isoformat(),
-        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": datetime.now(UTC).isoformat(),
         "smoke": smoke,
         "rows": len(rows),
     }

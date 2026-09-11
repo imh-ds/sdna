@@ -1,8 +1,6 @@
 import json
 from types import SimpleNamespace
 
-import numpy as np
-
 import simulations.run_simulation as simulation_runner
 from simulations.run_simulation import replication_seeds, run_simulation
 
