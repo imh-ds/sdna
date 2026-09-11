@@ -1,8 +1,11 @@
 import json
 from types import SimpleNamespace
 
+import pytest
+
 import simulations.run_simulation as simulation_runner
 from simulations.run_simulation import replication_seeds, run_simulation
+from tools.validate_smoke import validate_smoke
 
 
 def test_runner_dispatches_all_falsification_scenarios() -> None:
@@ -149,3 +152,27 @@ def test_runner_populates_calibration_and_comparator_outputs(tmp_path, monkeypat
     assert values["reference_tail_probability"] == "0.25"
     assert values["wald_z"] == "2.0"
     assert values["bootstrap_ci_excludes_zero"] == "True"
+
+
+def test_smoke_validator_requires_falsification_fields(tmp_path) -> None:
+    config = {
+        "seed": 7,
+        "replications": 1,
+        "n_values": [12],
+        "p_values": [3],
+        "population_partial_r": [0.0],
+        "contamination_cases": [0],
+        "fragility_targets": [0.5],
+    }
+    config_path = tmp_path / "config.json"
+    results_path = tmp_path / "results.csv"
+    metadata_path = tmp_path / "results.metadata.json"
+    summary_path = tmp_path / "summary.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    fields = [field for field in simulation_runner.FIELDNAMES if field != "reference_reached_fraction"]
+    results_path.write_text(",".join(fields) + "\n", encoding="utf-8")
+    metadata_path.write_text("{}", encoding="utf-8")
+    summary_path.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="reference_reached_fraction"):
+        validate_smoke(results_path, metadata_path, summary_path, config_path)

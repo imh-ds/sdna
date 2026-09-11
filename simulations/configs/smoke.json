@@ -3,8 +3,16 @@
   "replications": 5,
   "n_values": [30],
   "p_values": [5],
-  "population_partial_r": [0.0, 0.4],
-  "contamination_cases": [0, 3],
+  "scenarios": [
+    "clean_planted_edge",
+    "single_influential_case",
+    "coalition_contamination",
+    "mixture_subgroup",
+    "heavy_tails",
+    "collinearity_stress"
+  ],
+  "population_partial_r": [0.4],
+  "contamination_cases": [3],
   "fragility_targets": [0.9, 0.7, 0.5, 0.3],
   "certification_combination_budget": 1000,
   "calibration_simulations": 3,
