@@ -86,3 +86,15 @@ class CalibrationResult:
     reference_reached: tuple[bool, ...]
     reference_edge_estimates: np.ndarray
     reference_tail_probability: float | None
+
+
+@dataclass(frozen=True)
+class EdgeAnalysis:
+    """All diagnostics computed for one explicitly selected edge."""
+
+    edge: tuple[int, int]
+    full_value: float
+    influence: InfluenceResult
+    analytic_influence: InfluenceResult
+    fragility: FragilityResult
+    calibration: CalibrationResult | None
