@@ -46,6 +46,22 @@ def test_coalition_and_subgroup_return_exact_case_indices() -> None:
     assert len(set(subgroup.contaminated_cases)) == 12
 
 
+def test_mixture_truth_metadata_describes_the_overall_mixture() -> None:
+    simulated = mixture_subgroup(
+        100,
+        5,
+        np.random.default_rng(8),
+        subgroup_fraction=0.2,
+        subgroup_partial=0.6,
+    )
+
+    assert simulated.covariance[0, 1] == pytest.approx(0.12)
+    assert simulated.partial_correlation[0, 1] == pytest.approx(0.12)
+    np.testing.assert_allclose(
+        simulated.precision @ simulated.covariance, np.eye(5), atol=1e-8
+    )
+
+
 def test_all_dgps_return_truth_matrices() -> None:
     datasets = [
         heavy_tails(40, 4, np.random.default_rng(5)),

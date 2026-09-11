@@ -42,6 +42,17 @@ def test_incremental_auc_reports_baseline_and_augmented_scores() -> None:
     assert result["augmented_auc"] == 1.0
 
 
+def test_incremental_auc_fits_predictor_weights() -> None:
+    result = incremental_auc(
+        [0, 0, 1, 1],
+        baseline=[0.0, 10.0, 0.0, 10.0],
+        fragility=[0.0, 0.0, 1.0, 1.0],
+    )
+
+    assert result["baseline_auc"] == 0.5
+    assert result["augmented_auc"] == 1.0
+
+
 def test_summary_reports_json_and_markdown(tmp_path) -> None:
     rows = [
         {

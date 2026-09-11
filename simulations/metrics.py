@@ -99,13 +99,41 @@ def influence_metrics(
 def incremental_auc(
     labels: Iterable[int], baseline: Iterable[float], fragility: Iterable[float]
 ) -> dict[str, float]:
-    """Compare baseline AUC with a rank-standardized baseline+fragility score."""
+    """Compare fitted baseline and augmented linear probability scores.
+
+    Predictors are standardized before least-squares fitting to the binary
+    labels. The augmented score estimates predictor weights from the data,
+    rather than assigning baseline and fragility an arbitrary equal weight.
+    AUC is evaluated in-sample and is therefore a scoring benchmark, not an
+    estimate of out-of-sample predictive performance.
+    """
     base, extra = _as_vector(baseline), _as_vector(fragility)
     if base.size != extra.size:
         raise ValueError("baseline and fragility must have equal length")
-    base_z = (base - np.mean(base)) / (np.std(base) or 1.0)
-    extra_z = (extra - np.mean(extra)) / (np.std(extra) or 1.0)
+    raw_labels = np.asarray(list(labels))
+    if raw_labels.ndim != 1 or raw_labels.size != base.size:
+        raise ValueError("labels must be binary and match scores")
+    if not np.all(np.isin(raw_labels, [0, 1])):
+        raise ValueError("labels must be binary and match scores")
+    truth = raw_labels.astype(int)
+
+    def fitted_score(predictors: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        scales = np.std(predictors, axis=0)
+        standardized = (predictors - np.mean(predictors, axis=0)) / np.where(
+            scales == 0.0, 1.0, scales
+        )
+        design = np.column_stack([np.ones(predictors.shape[0]), standardized])
+        coefficients = np.linalg.lstsq(design, truth, rcond=None)[0]
+        return design @ coefficients, coefficients
+
+    baseline_score, baseline_coefficients = fitted_score(base[:, None])
+    augmented_score, augmented_coefficients = fitted_score(
+        np.column_stack([base, extra])
+    )
     return {
-        "baseline_auc": auc(labels, base),
-        "augmented_auc": auc(labels, base_z + extra_z),
+        "baseline_auc": auc(truth, baseline_score),
+        "augmented_auc": auc(truth, augmented_score),
+        "baseline_coefficient": float(baseline_coefficients[1]),
+        "augmented_baseline_coefficient": float(augmented_coefficients[1]),
+        "augmented_fragility_coefficient": float(augmented_coefficients[2]),
     }

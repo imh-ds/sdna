@@ -7,7 +7,11 @@ import numpy as np
 
 @dataclass(frozen=True)
 class SimulatedDataset:
-    """Simulated observations with their population truth and metadata."""
+    """Simulated observations with population covariance truth and metadata.
+
+    For a mixture DGP, the covariance and precision describe the overall
+    mixture-weighted second-moment distribution, not only one subgroup.
+    """
 
     X: np.ndarray
     covariance: np.ndarray
@@ -153,7 +157,12 @@ def mixture_subgroup(
     X[list(indices)] = rng.multivariate_normal(
         np.zeros(p), subgroup_covariance, size=subgroup_size
     )
-    return _dataset(X, base_covariance, focal_edge, indices)
+    subgroup_weight = subgroup_size / n
+    mixture_covariance = (
+        (1.0 - subgroup_weight) * base_covariance
+        + subgroup_weight * subgroup_covariance
+    )
+    return _dataset(X, mixture_covariance, focal_edge, indices)
 
 
 def heavy_tails(
