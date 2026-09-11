@@ -31,7 +31,7 @@ def _validated_generator_correlation(correlation: np.ndarray) -> np.ndarray:
         symmetric = vectors @ np.diag(np.clip(values, 0.0, None)) @ vectors.T
         diagonal = np.sqrt(np.diag(symmetric))
         symmetric = symmetric / np.outer(diagonal, diagonal)
-    return symmetric
+    return np.asarray(symmetric, dtype=float)
 
 
 def calibrate_fragility(

@@ -39,7 +39,7 @@ def case_leverage(influence: InfluenceResult) -> np.ndarray:
     """
     changes = _exact_changes(influence)
     upper = np.triu_indices(changes.shape[1], k=1)
-    return np.sum(np.abs(changes[:, upper[0], upper[1]]), axis=1)
+    return np.asarray(np.sum(np.abs(changes[:, upper[0], upper[1]]), axis=1), dtype=float)
 
 
 def edge_concentration(

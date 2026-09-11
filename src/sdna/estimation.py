@@ -11,7 +11,7 @@ __all__ = ["estimate_shrinkage", "fit_network"]
 
 
 def _standardize(X: np.ndarray) -> np.ndarray:
-    return (X - X.mean(axis=0)) / X.std(axis=0, ddof=1)
+    return np.asarray((X - X.mean(axis=0)) / X.std(axis=0, ddof=1), dtype=float)
 
 
 def estimate_shrinkage(X: np.ndarray) -> float:

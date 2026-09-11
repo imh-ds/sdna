@@ -32,7 +32,7 @@ jobs:
         run: ruff check src tests simulations
 
       - name: Type check
-        run: mypy src/sdna
+        run: mypy --python-version "${{ matrix.python-version }}" src/sdna
 
       - name: Test with coverage
         run: pytest --cov=sdna --cov-report=term-missing
