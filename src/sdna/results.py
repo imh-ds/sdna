@@ -72,3 +72,17 @@ class FragilityResult:
     certified: bool = False
     exact_minimum: int | None = None
     combinations_checked: int = 0
+
+
+@dataclass(frozen=True)
+class CalibrationResult:
+    """Observed and clean-reference fragility calibration results."""
+
+    edge: tuple[int, int]
+    target: FragilityTarget
+    observed_count: int | None
+    observed_reached: bool
+    reference_counts: tuple[int | None, ...]
+    reference_reached: tuple[bool, ...]
+    reference_edge_estimates: np.ndarray
+    reference_tail_probability: float | None
