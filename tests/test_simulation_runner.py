@@ -43,6 +43,30 @@ def test_smoke_workload_uses_benchmark_derived_limits() -> None:
     assert simulation_runner.workload_settings(config, smoke=False) == (20, 100, 200)
 
 
+def test_runner_records_full_influence_and_reach_measurements() -> None:
+    config = {
+        "seed": 123,
+        "replications": 1,
+        "n_values": [8],
+        "p_values": [3],
+        "population_partial_r": [0.2],
+        "scenarios": ["single_influential_case"],
+        "contamination_cases": [1],
+        "fragility_targets": [0.5],
+        "certification_combination_budget": 20,
+        "calibration_simulations": 1,
+        "bootstrap_samples": 2,
+    }
+
+    row = simulation_runner._run(config, smoke=True)[0]
+
+    assert row["contamination_status"] == 1
+    assert row["influence_top_k_precision"] is not None
+    assert row["first_planted_reciprocal_rank"] is not None
+    assert row["reference_reached_fraction"] is not None
+    assert row["bootstrap_rejected_resamples"] >= 0
+
+
 def test_replication_seeds_are_deterministic_and_independent() -> None:
     first = replication_seeds(20260910, 4)
     second = replication_seeds(20260910, 4)
@@ -95,7 +119,10 @@ def test_runner_populates_calibration_and_comparator_outputs(tmp_path, monkeypat
     monkeypatch.setattr(
         simulation_runner,
         "calibrate_fragility",
-        lambda *args, **kwargs: SimpleNamespace(reference_tail_probability=0.25),
+        lambda *args, **kwargs: SimpleNamespace(
+            reference_tail_probability=0.25,
+            reference_reached=(True,),
+        ),
     )
     monkeypatch.setattr(
         simulation_runner,
@@ -105,7 +132,10 @@ def test_runner_populates_calibration_and_comparator_outputs(tmp_path, monkeypat
     monkeypatch.setattr(
         simulation_runner,
         "shrinkage_bootstrap",
-        lambda *args, **kwargs: SimpleNamespace(confidence_interval=(0.1, 0.2)),
+        lambda *args, **kwargs: SimpleNamespace(
+            confidence_interval=(0.1, 0.2),
+            rejected_resamples=0,
+        ),
     )
 
     config_path = tmp_path / "config.json"

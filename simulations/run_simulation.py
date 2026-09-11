@@ -28,6 +28,7 @@ from simulations.dgp import (
     mixture_subgroup,
     single_influential_case,
 )
+from simulations.metrics import influence_metrics
 
 SCENARIO_NAMES = (
     "clean_planted_edge",
@@ -41,8 +42,11 @@ SCENARIO_NAMES = (
 FIELDNAMES = [
     "scenario", "replication", "seed", "N", "p", "fragility_target", "true_rho",
     "observed_rho", "lambda",
-    "contamination_count", "greedy_fragility_50", "exact_fragility_50", "certified", "reached",
-    "reference_tail_probability", "wald_z", "bootstrap_ci_excludes_zero", "influence_top_k_recall",
+    "contamination_count", "contamination_status", "greedy_fragility_50", "exact_fragility_50",
+    "certified", "reached", "reference_tail_probability", "reference_reached_fraction",
+    "wald_z", "bootstrap_ci_excludes_zero", "bootstrap_rejected_resamples",
+    "influence_top_k_precision", "influence_top_k_recall", "first_planted_reciprocal_rank",
+    "planted_absolute_influence_share",
 ]
 
 
@@ -235,14 +239,14 @@ def _run(
             shrinkage=fitted.shrinkage,
             confidence=bootstrap_confidence,
         )
-        recall = None
+        influence_summary: dict[str, float] | None = None
         if simulated.contaminated_cases:
             influence = exact_loo_influence(simulated.X, fitted).changes[
                 :, edge[0], edge[1]
             ]
-            order = np.argsort(-np.sign(observed_rho) * influence)
-            top = set(order[: len(simulated.contaminated_cases)].tolist())
-            recall = len(top.intersection(simulated.contaminated_cases)) / len(top)
+            influence_summary = influence_metrics(
+                influence, simulated.contaminated_cases, len(simulated.contaminated_cases)
+            )
         rows.append({
             "scenario": scenario,
             "replication": replication,
@@ -254,17 +258,36 @@ def _run(
             "observed_rho": observed_rho,
             "lambda": fitted.shrinkage,
             "contamination_count": len(simulated.contaminated_cases),
+            "contamination_status": int(bool(simulated.contaminated_cases)),
             "greedy_fragility_50": greedy.greedy_count,
             "exact_fragility_50": None if certified is None else certified.exact_minimum,
             "certified": False if certified is None else certified.certified,
             "reached": greedy.reached,
             "reference_tail_probability": calibration.reference_tail_probability,
+            "reference_reached_fraction": sum(calibration.reference_reached)
+            / len(calibration.reference_reached),
             "wald_z": wald.z,
             "bootstrap_ci_excludes_zero": (
                 bootstrap.confidence_interval[0] > 0.0
                 or bootstrap.confidence_interval[1] < 0.0
             ),
-            "influence_top_k_recall": recall,
+            "bootstrap_rejected_resamples": bootstrap.rejected_resamples,
+            "influence_top_k_precision": (
+                None if influence_summary is None else influence_summary["top_k_precision"]
+            ),
+            "influence_top_k_recall": (
+                None if influence_summary is None else influence_summary["top_k_recall"]
+            ),
+            "first_planted_reciprocal_rank": (
+                None
+                if influence_summary is None
+                else influence_summary["first_planted_reciprocal_rank"]
+            ),
+            "planted_absolute_influence_share": (
+                None
+                if influence_summary is None
+                else influence_summary["planted_absolute_influence_share"]
+            ),
         })
     return rows
 
