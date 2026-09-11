@@ -1,0 +1,10 @@
+{
+  "seed": 20260910,
+  "replications": 500,
+  "n_values": [50, 75, 100, 150],
+  "p_values": [5, 10, 15, 20],
+  "population_partial_r": [0.0],
+  "contamination_cases": [1, 3, 5],
+  "fragility_targets": [0.9, 0.7, 0.5, 0.3],
+  "certification_combination_budget": 100000
+}
