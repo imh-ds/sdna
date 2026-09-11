@@ -5,6 +5,31 @@ from sdna.fragility import FragilityTarget, certify_fragility, greedy_fragility
 from sdna.results import FragilityResult
 
 
+def test_certification_can_improve_greedy_upper_bound(
+    greedy_failure_data: np.ndarray,
+) -> None:
+    fit = fit_network(greedy_failure_data)
+    greedy = greedy_fragility(
+        greedy_failure_data,
+        edge=(0, 1),
+        target=FragilityTarget("relative", 0.5),
+        shrinkage=fit.shrinkage,
+        search_cap=4,
+    )
+
+    assert greedy.reached
+    assert greedy.greedy_count == 4
+    certified = certify_fragility(
+        greedy_failure_data,
+        greedy,
+        shrinkage=fit.shrinkage,
+        max_combinations=200_000,
+    )
+
+    assert certified.certified
+    assert certified.exact_minimum == 3
+
+
 def test_certification_reuses_greedy_shrinkage_by_default(
     gaussian_data: np.ndarray, monkeypatch: pytest.MonkeyPatch
 ) -> None:

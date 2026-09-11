@@ -41,3 +41,17 @@ def test_exact_loo_changes_are_symmetric_with_zero_diagonal(
 
     np.testing.assert_allclose(result.changes, np.swapaxes(result.changes, 1, 2), atol=1e-12)
     np.testing.assert_allclose(np.diagonal(result.changes, axis1=1, axis2=2), 0.0, atol=1e-12)
+
+
+def test_exact_loo_requires_enough_rows_for_each_refit() -> None:
+    data = np.array(
+        [
+            [0.0, 1.0],
+            [1.0, 0.0],
+            [2.0, 3.0],
+        ]
+    )
+    fitted = fit_network(data)
+
+    with pytest.raises(ValueError, match="at least 4 rows"):
+        exact_loo_influence(data, fitted)

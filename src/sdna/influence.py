@@ -19,6 +19,8 @@ def exact_loo_influence(X: np.ndarray, fitted: NetworkFit) -> InfluenceResult:
     """
     data = validate_data(X)
     n, p = data.shape
+    if n < 4:
+        raise ValueError("exact LOO influence requires at least 4 rows")
     if fitted.partial_correlation.shape != (p, p):
         raise ValueError("fitted network dimensions do not match X")
     if fitted.standardized.shape[0] != n:
