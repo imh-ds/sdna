@@ -61,7 +61,7 @@ def shrinkage_bootstrap(
                 "check that each variable has sufficient variation"
             )
         selected = random.integers(0, n, size=n)
-        if np.any(np.std(data[selected], axis=0, ddof=1) == 0.0):
+        if np.any(np.ptp(data[selected], axis=0) == 0.0):
             rejected += 1
             continue
         bootstrap_fit = fit_network(
