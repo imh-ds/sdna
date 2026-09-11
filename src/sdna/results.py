@@ -70,3 +70,5 @@ class FragilityResult:
     cases: tuple[int, ...]
     trajectory: np.ndarray
     certified: bool = False
+    exact_minimum: int | None = None
+    combinations_checked: int = 0

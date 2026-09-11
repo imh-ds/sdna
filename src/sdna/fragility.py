@@ -1,5 +1,9 @@
 """Greedy edge-fragility search with explicit stopping semantics."""
 
+from dataclasses import replace
+from itertools import combinations
+from math import comb
+
 import numpy as np
 
 from sdna.estimation import fit_network
@@ -7,7 +11,7 @@ from sdna.influence import analytic_influence
 from sdna.results import FragilityResult, FragilityTarget
 from sdna.validation import validate_data
 
-__all__ = ["FragilityTarget", "criterion_met", "greedy_fragility"]
+__all__ = ["FragilityTarget", "certify_fragility", "criterion_met", "greedy_fragility"]
 
 
 def criterion_met(
@@ -85,4 +89,62 @@ def greedy_fragility(
         greedy_count=len(chosen) if reached else None,
         cases=tuple(chosen),
         trajectory=np.asarray(trajectory),
+    )
+
+
+def certify_fragility(
+    X: np.ndarray,
+    greedy: FragilityResult,
+    shrinkage: float | None = None,
+    max_combinations: int = 200_000,
+) -> FragilityResult:
+    """Certify the exact minimum below a reached greedy upper bound.
+
+    Complete subset sizes are enumerated from one through (but excluding) the
+    greedy count. If the next complete size exceeds the budget, enumeration
+    stops before that size begins and the result remains uncertified.
+    """
+    if not greedy.reached or greedy.greedy_count is None:
+        raise ValueError("greedy result must have reached the target before certification")
+    if max_combinations < 1:
+        raise ValueError("max_combinations must be positive")
+
+    data = validate_data(X)
+    n, p = data.shape
+    i, j = greedy.edge
+    if not (0 <= i < p and 0 <= j < p and i != j):
+        raise ValueError("greedy result contains an invalid edge")
+    full_fit = fit_network(data, shrinkage=shrinkage)
+    full_value = float(full_fit.partial_correlation[i, j])
+    checked = 0
+
+    for size in range(1, greedy.greedy_count):
+        size_total = comb(n, size)
+        if checked + size_total > max_combinations:
+            return replace(
+                greedy,
+                certified=False,
+                exact_minimum=None,
+                combinations_checked=checked,
+            )
+        for dropped in combinations(range(n), size):
+            keep = np.ones(n, dtype=bool)
+            keep[list(dropped)] = False
+            candidate = fit_network(data[keep], shrinkage=full_fit.shrinkage)
+            checked += 1
+            value = float(candidate.partial_correlation[i, j])
+            if criterion_met(value, full_value, greedy.target):
+                return replace(
+                    greedy,
+                    cases=tuple(dropped),
+                    exact_minimum=size,
+                    certified=True,
+                    combinations_checked=checked,
+                )
+
+    return replace(
+        greedy,
+        exact_minimum=greedy.greedy_count,
+        certified=True,
+        combinations_checked=checked,
     )
