@@ -35,4 +35,4 @@ jobs:
         run: mypy --python-version "${{ matrix.python-version }}" src/sdna
 
       - name: Test with coverage
-        run: pytest --cov=sdna --cov-report=term-missing
+        run: python -m pytest --cov=sdna --cov-report=term-missing
