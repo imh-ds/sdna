@@ -1,6 +1,7 @@
 """Result objects returned by SDNA estimation routines."""
 
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
@@ -34,3 +35,38 @@ class InfluenceResult:
 
     changes: np.ndarray
     method: str
+
+
+@dataclass(frozen=True)
+class FragilityTarget:
+    """Stopping rule for an edge-fragility search."""
+
+    kind: Literal["relative", "absolute", "sign_reversal"]
+    value: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.kind == "relative":
+            if self.value is None or not 0.0 < self.value < 1.0:
+                raise ValueError("relative target value must be between 0 and 1")
+        elif self.kind == "absolute":
+            if self.value is None or self.value < 0.0:
+                raise ValueError("absolute target value must be nonnegative")
+        elif self.kind == "sign_reversal":
+            if self.value is not None:
+                raise ValueError("sign_reversal target value must be None")
+        else:
+            raise ValueError(f"unknown fragility target: {self.kind}")
+
+
+@dataclass(frozen=True)
+class FragilityResult:
+    """Outcome of a greedy fragility search."""
+
+    edge: tuple[int, int]
+    target: FragilityTarget
+    full_value: float
+    reached: bool
+    greedy_count: int | None
+    cases: tuple[int, ...]
+    trajectory: np.ndarray
+    certified: bool = False
