@@ -8,6 +8,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import numpy as np
@@ -47,6 +48,7 @@ FIELDNAMES = [
     "wald_z", "bootstrap_ci_excludes_zero", "bootstrap_rejected_resamples",
     "influence_top_k_precision", "influence_top_k_recall", "first_planted_reciprocal_rank",
     "planted_absolute_influence_share",
+    "elapsed_seconds",
 ]
 
 
@@ -189,6 +191,7 @@ def _run(
     target_value = 0.5
     target = FragilityTarget("relative", target_value)
     for seed_index, (n, p, scenario, parameter, replication) in enumerate(jobs):
+        row_started = perf_counter()
         row_seed = seeds[seed_index]
         rng = np.random.default_rng(row_seed)
         scenario_config = dict(config)
@@ -247,7 +250,7 @@ def _run(
             influence_summary = influence_metrics(
                 influence, simulated.contaminated_cases, len(simulated.contaminated_cases)
             )
-        rows.append({
+        row = {
             "scenario": scenario,
             "replication": replication,
             "seed": row_seed,
@@ -288,7 +291,9 @@ def _run(
                 if influence_summary is None
                 else influence_summary["planted_absolute_influence_share"]
             ),
-        })
+            "elapsed_seconds": perf_counter() - row_started,
+        }
+        rows.append(row)
     return rows
 
 
@@ -304,6 +309,7 @@ def run_simulation(
     output_file = Path(output_path)
     config = json.loads(config_file.read_text(encoding="utf-8"))
     started = datetime.now(UTC)
+    run_started = perf_counter()
     rows = _run(
         config,
         smoke=smoke,
@@ -315,6 +321,14 @@ def run_simulation(
         writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
         writer.writeheader()
         writer.writerows(rows)
+    scenario_elapsed_seconds: dict[str, float] = {}
+    scenario_rows: dict[str, int] = {}
+    for row in rows:
+        scenario = str(row["scenario"])
+        scenario_elapsed_seconds[scenario] = scenario_elapsed_seconds.get(scenario, 0.0) + float(
+            row["elapsed_seconds"]
+        )
+        scenario_rows[scenario] = scenario_rows.get(scenario, 0) + 1
     metadata = {
         "git_commit": _git_commit(),
         "python_version": sys.version,
@@ -325,6 +339,11 @@ def run_simulation(
         "finished_at": datetime.now(UTC).isoformat(),
         "smoke": smoke,
         "rows": len(rows),
+        "timing": {
+            "elapsed_seconds": perf_counter() - run_started,
+            "scenario_elapsed_seconds": scenario_elapsed_seconds,
+            "scenario_rows": scenario_rows,
+        },
     }
     metadata_path = output_file.with_suffix(".metadata.json")
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")

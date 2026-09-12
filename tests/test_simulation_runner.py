@@ -1,4 +1,6 @@
+import csv
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -44,6 +46,15 @@ def test_smoke_workload_uses_benchmark_derived_limits() -> None:
 
     assert simulation_runner.workload_settings(config, smoke=True) == (5, 10, 25)
     assert simulation_runner.workload_settings(config, smoke=False) == (20, 100, 200)
+
+
+def test_falsification_pilot_declares_bounded_certification_limits() -> None:
+    config = json.loads(
+        Path("simulations/configs/falsification_pilot.json").read_text(encoding="utf-8")
+    )
+
+    assert config["search_cap"] == 2
+    assert config["certification_combination_budget"] == 1000
 
 
 def test_runner_records_full_influence_and_reach_measurements() -> None:
@@ -104,6 +115,13 @@ def test_smoke_runner_writes_rows_and_metadata(tmp_path) -> None:
     metadata = json.loads((tmp_path / "results.metadata.json").read_text(encoding="utf-8"))
     assert metadata["config_checksum"]
     assert metadata["numpy_version"]
+    with output_path.open(newline="", encoding="utf-8") as handle:
+        result_rows = list(csv.DictReader(handle))
+    assert all(float(row["elapsed_seconds"]) >= 0.0 for row in result_rows)
+    timing = metadata["timing"]
+    assert timing["scenario_rows"] == {"clean_planted_edge": 2}
+    assert timing["scenario_elapsed_seconds"]["clean_planted_edge"] >= 0.0
+    assert timing["elapsed_seconds"] >= timing["scenario_elapsed_seconds"]["clean_planted_edge"]
 
 
 def test_runner_populates_calibration_and_comparator_outputs(tmp_path, monkeypatch) -> None:

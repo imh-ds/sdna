@@ -13,7 +13,7 @@ from typing import Any
 
 from simulations.run_simulation import FIELDNAMES as EXPECTED_FIELDS
 
-FINITE_FIELDS = ("true_rho", "observed_rho", "lambda", "wald_z")
+FINITE_FIELDS = ("true_rho", "observed_rho", "lambda", "wald_z", "elapsed_seconds")
 
 
 def _checksum(config: dict[str, Any]) -> str:
@@ -124,7 +124,9 @@ def validate_smoke(
         if scenario not in expected_scenarios:
             raise ValueError(f"unexpected simulation scenario: {scenario!r}")
         for field in FINITE_FIELDS:
-            _required_float(row, field)
+            value = _required_float(row, field)
+            if field == "elapsed_seconds" and value < 0.0:
+                raise ValueError("simulation field 'elapsed_seconds' must be nonnegative")
         target = _required_float(row, "fragility_target")
         if not 0.0 < target < 1.0:
             raise ValueError("simulation field 'fragility_target' must be between 0 and 1")
@@ -181,6 +183,32 @@ def validate_smoke(
         raise ValueError("simulation metadata row count does not match results")
     if metadata.get("config_checksum") != _checksum(config):
         raise ValueError("simulation metadata config checksum does not match config")
+    timing = metadata.get("timing")
+    if not isinstance(timing, dict):
+        raise TypeError("simulation metadata does not contain a timing object")
+    elapsed_seconds = timing.get("elapsed_seconds")
+    if elapsed_seconds is None or not math.isfinite(float(elapsed_seconds)):
+        raise ValueError("simulation metadata elapsed time is not finite")
+    if float(elapsed_seconds) < 0.0:
+        raise ValueError("simulation metadata elapsed time is negative")
+    scenario_elapsed = timing.get("scenario_elapsed_seconds")
+    scenario_rows = timing.get("scenario_rows")
+    if not isinstance(scenario_elapsed, dict) or not isinstance(scenario_rows, dict):
+        raise TypeError("simulation metadata timing detail is invalid")
+    if set(scenario_elapsed) != set(expected_scenarios) or set(scenario_rows) != set(
+        expected_scenarios
+    ):
+        raise ValueError("simulation metadata timing scenarios do not match results")
+    scenario_elapsed_total = 0.0
+    for scenario, expected_count in expected_scenarios.items():
+        elapsed = float(scenario_elapsed[scenario])
+        if not math.isfinite(elapsed) or elapsed < 0.0:
+            raise ValueError(f"simulation metadata elapsed time is invalid for {scenario!r}")
+        if int(scenario_rows[scenario]) != expected_count:
+            raise ValueError(f"simulation metadata timing row count is wrong for {scenario!r}")
+        scenario_elapsed_total += elapsed
+    if float(elapsed_seconds) + 1e-9 < scenario_elapsed_total:
+        raise ValueError("simulation metadata total elapsed time is below scenario total")
 
     summary = json.loads(Path(summary_path).read_text(encoding="utf-8"))
     if summary.get("rows") != expected_rows:

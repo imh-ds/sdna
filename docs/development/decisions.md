@@ -230,3 +230,24 @@ implementation consequence rather than silently changing an earlier record.
 - **Consequence:** Comparator reruns have explicit environment, seed, and
   session metadata; the lockfile still requires restoration in a networked R
   environment before execution.
+
+## ADR-011 — Bound falsification-pilot certification and record timing
+
+- **Date:** 2026-09-11
+- **Decision:** Run the falsification pilot with `search_cap=2` and a
+  certification combination budget of `1000`. Record per-row elapsed seconds
+  plus aggregate per-scenario elapsed seconds and row counts in simulation
+  metadata.
+- **Rationale:** The initial reduced pilot remained dominated by exact
+  certification at the largest sample sizes. A two-deletion greedy bound and
+  bounded certification budget keep the pilot finite while preserving an
+  auditable distinction between reached, certified, and censored results.
+  Timing evidence makes future optimization decisions measurable rather than
+  speculative.
+- **Consequences:** Pilot rows that require a larger exact certification are
+  represented as uncertified/censored and their summary metrics remain
+  explicitly null where appropriate. The estimator and fragility algorithms
+  are unchanged; the pilot configuration is the practical pre-optimization
+  limit.
+- **Status:** Implemented in `simulations/configs/falsification_pilot.json`,
+  `simulations/run_simulation.py`, and `tools/validate_smoke.py`.
