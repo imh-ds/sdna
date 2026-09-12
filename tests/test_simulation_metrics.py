@@ -77,6 +77,58 @@ def censored_clean_rows() -> list[dict[str, str | None]]:
     ]
 
 
+def hand_computable_paired_contrast_rows() -> list[dict[str, str | None]]:
+    """Return matched clean/contaminated rows with one censored pair."""
+    rows: list[dict[str, str | None]] = []
+    values = [
+        (50, 5, 0.1, 0.2, 0.1, 0.8),
+        (60, 6, 0.2, 0.4, 0.2, 0.7),
+        (70, 7, 0.3, 0.6, 0.3, 0.9),
+        (80, 8, 0.4, 0.8, 0.4, 1.0),
+    ]
+    for replication, (
+        n,
+        p,
+        clean_rho,
+        contaminated_rho,
+        clean_exact,
+        contaminated_exact,
+    ) in enumerate(values):
+        common = {
+            "replication": str(replication),
+            "N": str(n),
+            "p": str(p),
+            "wald_z": str(clean_rho * 2.0),
+            "greedy_fragility_50": str(clean_exact),
+            "certified": "True",
+            "reached": "True",
+        }
+        rows.append(
+            common
+            | {
+                "scenario": "clean_planted_edge",
+                "observed_rho": str(clean_rho),
+                "contamination_status": "0",
+                "exact_fragility_50": str(clean_exact),
+            }
+        )
+        contaminated = common | {
+            "scenario": "coalition_contamination",
+            "observed_rho": str(contaminated_rho),
+            "wald_z": str(contaminated_rho * 2.0),
+            "contamination_status": "1",
+            "exact_fragility_50": str(contaminated_exact),
+            "greedy_fragility_50": str(contaminated_exact),
+        }
+        if replication == 3:
+            contaminated["reached"] = "False"
+            contaminated["certified"] = "False"
+            contaminated["exact_fragility_50"] = None
+            contaminated["greedy_fragility_50"] = None
+        rows.append(contaminated)
+    return rows
+
+
 def test_auc_on_hand_computable_scores() -> None:
     assert auc([0, 0, 1, 1], [0.1, 0.2, 0.8, 0.9]) == 1.0
 
@@ -163,3 +215,27 @@ def test_summary_preserves_null_for_single_class_or_censored_metrics() -> None:
 
     assert result["incremental_auc"] is None
     assert result["mean_exact_fragility"] is None
+
+
+def test_summary_reports_paired_cross_scenario_contrast() -> None:
+    summary = summarize_rows(hand_computable_paired_contrast_rows())
+    result = summary["paired_contrasts"]["clean_vs_coalition_contamination"]
+
+    assert result["matched_pairs"] == 4
+    assert result["censored_pairs"] == 1
+    assert result["incremental_auc"]["augmented_auc"] >= result["incremental_auc"]["baseline_auc"]
+    assert result["fragility_contamination_partial_rank"] is not None
+
+
+def test_summary_omits_unmatched_cross_scenario_contrasts() -> None:
+    rows = hand_computable_paired_contrast_rows()
+    rows = [
+        row
+        for row in rows
+        if row["scenario"] != "clean_planted_edge" or row["replication"] != "3"
+    ]
+
+    result = summarize_rows(rows)["paired_contrasts"]["clean_vs_coalition_contamination"]
+
+    assert result["matched_pairs"] == 3
+    assert result["unmatched_contaminated_rows"] == 1

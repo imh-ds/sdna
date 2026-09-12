@@ -64,11 +64,28 @@ Structurally undefined rather than negative:
   classes required for estimation. This must not be interpreted as evidence
   that fragility adds no information.
 
+## Paired cross-scenario contrasts
+
+The paired contrast layer matches clean and contaminated rows by `N`, `p`,
+and replication. It excludes censored exact-fragility rows from the metric
+calculations while retaining their counts. The AUC values are learned-weight,
+in-sample benchmarks rather than out-of-sample predictive estimates.
+
+| Contrast | Matched pairs | Censored pairs | Valid fragility rows | Baseline AUC | Augmented AUC | Partial rank |
+|---|---:|---:|---:|---:|---:|---:|
+| `clean_vs_single_influential_case` | 90 | 51 | 124 | 0.632 | 0.685 | -0.249 |
+| `clean_vs_coalition_contamination` | 90 | 54 | 115 | 0.753 | 0.752 | -0.087 |
+| `clean_vs_mixture_subgroup` | 90 | 56 | 110 | 0.509 | 0.611 | 0.154 |
+
+These contrasts resolve the structural single-class limitation in the
+scenario-level summaries. They do not remove censoring: in each contrast the
+clean and contaminated reach rates differ, and the paired metrics use only
+the finite reached rows.
+
 ## Next methodological step
 
-Before numerical optimization, add a paired cross-scenario contrast summary
-that matches clean and contaminated rows by `N`, `p`, and replication, then
-computes incremental AUC and partial-rank association on that
-explicit contrast. Keep the current scenario-level summaries unchanged. The
-next run should use the committed certification/search limits and record the
-same timing metadata before any estimator optimization is considered.
+Run a sensitivity pilot with the committed calibration/bootstrap budgets
+(`25`/`100`) while retaining the certification/search limits, then compare its
+contrast estimates and timing metadata with this reduced execution-validation
+run. Numerical optimization should remain deferred until that comparison
+shows a reproducible bottleneck rather than merely a reduced-budget runtime.
