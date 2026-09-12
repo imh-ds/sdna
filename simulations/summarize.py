@@ -13,6 +13,7 @@ import numpy as np
 from simulations.metrics import incremental_auc, partial_rank_association, spearman_correlation
 
 Row = Mapping[str, Any]
+FragilityRecord = tuple[float, float, float, float, float, float]
 
 
 def _optional_float(row: Row, field: str) -> float | None:
@@ -78,9 +79,9 @@ def _safe_partial_rank(
 
 def _paired_fragility_records(
     rows: Sequence[Row],
-) -> list[tuple[float, float, float, float, float, float]]:
+) -> list[FragilityRecord]:
     """Return reached rows with finite exact fragility and comparison fields."""
-    records: list[tuple[float, float, float, float, float, float]] = []
+    records: list[FragilityRecord] = []
     for row in rows:
         if _optional_bool(row, "reached") is not True:
             continue
@@ -211,6 +212,40 @@ def _valid_fragility_row(row: Row) -> bool:
     return bool(_paired_fragility_records([row]))
 
 
+def _contrast_metric_summary(records: Sequence[FragilityRecord]) -> dict[str, Any]:
+    """Summarize contrast metrics for one explicitly defined row population."""
+    exact_values = [record[0] for record in records]
+    observed_values = [abs(record[1]) for record in records]
+    wald_values = [abs(record[2]) for record in records]
+    n_values = [record[3] for record in records]
+    p_values = [record[4] for record in records]
+    contamination_values = [int(record[5]) for record in records]
+
+    auc_result: dict[str, float] | None = None
+    if len(set(contamination_values)) == 2:
+        try:
+            auc_result = incremental_auc(contamination_values, observed_values, exact_values)
+        except (ValueError, FloatingPointError):
+            auc_result = None
+
+    return {
+        "fragility_vs_abs_observed_rho_spearman": _safe_spearman(
+            exact_values, observed_values
+        ),
+        "fragility_vs_abs_wald_z_spearman": _safe_spearman(exact_values, wald_values),
+        "fragility_contamination_partial_rank": (
+            _safe_partial_rank(
+                exact_values,
+                contamination_values,
+                [observed_values, n_values, p_values],
+            )
+            if len(set(contamination_values)) == 2
+            else None
+        ),
+        "incremental_auc": auc_result,
+    }
+
+
 def _paired_contrast_summary(
     clean_rows: Sequence[Row],
     contaminated_rows: Sequence[Row],
@@ -237,21 +272,15 @@ def _paired_contrast_summary(
         for key in sorted(matched_keys)
     ]
     paired_rows = [row for pair in pairs for row in pair]
-    valid_rows = [row for row in paired_rows if _valid_fragility_row(row)]
-    valid_records = _paired_fragility_records(valid_rows)
-    exact_values = [record[0] for record in valid_records]
-    observed_values = [abs(record[1]) for record in valid_records]
-    wald_values = [abs(record[2]) for record in valid_records]
-    n_values = [record[3] for record in valid_records]
-    p_values = [record[4] for record in valid_records]
-    contamination_values = [int(record[5]) for record in valid_records]
-
-    auc_result: dict[str, float] | None = None
-    if len(set(contamination_values)) == 2:
-        try:
-            auc_result = incremental_auc(contamination_values, observed_values, exact_values)
-        except (ValueError, FloatingPointError):
-            auc_result = None
+    individually_valid_rows = [row for row in paired_rows if _valid_fragility_row(row)]
+    individually_valid_records = _paired_fragility_records(individually_valid_rows)
+    jointly_valid_pairs = [
+        (clean, contaminated)
+        for clean, contaminated in pairs
+        if _valid_fragility_row(clean) and _valid_fragility_row(contaminated)
+    ]
+    jointly_valid_rows = [row for pair in jointly_valid_pairs for row in pair]
+    jointly_valid_records = _paired_fragility_records(jointly_valid_rows)
 
     return {
         "clean_scenario": clean_scenario,
@@ -274,27 +303,17 @@ def _paired_contrast_summary(
             not (_valid_fragility_row(clean) and _valid_fragility_row(contaminated))
             for clean, contaminated in pairs
         ),
-        "valid_fragility_rows": len(valid_rows),
-        "valid_clean_fragility_rows": sum(
+        "individually_valid_fragility_rows": len(individually_valid_rows),
+        "individually_valid_clean_fragility_rows": sum(
             _valid_fragility_row(clean) for clean, _ in pairs
         ),
-        "valid_contaminated_fragility_rows": sum(
+        "individually_valid_contaminated_fragility_rows": sum(
             _valid_fragility_row(contaminated) for _, contaminated in pairs
         ),
-        "fragility_vs_abs_observed_rho_spearman": _safe_spearman(
-            exact_values, observed_values
-        ),
-        "fragility_vs_abs_wald_z_spearman": _safe_spearman(exact_values, wald_values),
-        "fragility_contamination_partial_rank": (
-            _safe_partial_rank(
-                exact_values,
-                contamination_values,
-                [observed_values, n_values, p_values],
-            )
-            if len(set(contamination_values)) == 2
-            else None
-        ),
-        "incremental_auc": auc_result,
+        "jointly_valid_pair_count": len(jointly_valid_pairs),
+        "jointly_valid_fragility_rows": len(jointly_valid_rows),
+        "individually_valid_row_metrics": _contrast_metric_summary(individually_valid_records),
+        "jointly_valid_pair_metrics": _contrast_metric_summary(jointly_valid_records),
     }
 
 
@@ -380,19 +399,27 @@ def _markdown(summary: dict[str, Any]) -> str:
         lines.extend(
             [
                 "",
-                "## Paired Cross-Scenario Contrasts",
+                "## Matched-cell Cross-Scenario Contrasts",
                 "",
-                "| Contrast | Matched pairs | Valid fragility rows | Baseline AUC | Augmented AUC | Partial rank |",
-                "|---|---:|---:|---:|---:|---:|",
+                "| Contrast | Matched cells | Individually valid rows | Jointly valid pairs | Pooled baseline AUC | Pooled augmented AUC | Joint baseline AUC | Joint augmented AUC | Pooled partial rank | Joint partial rank |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
             ]
         )
         for contrast, values in contrasts.items():
-            auc_values = values.get("incremental_auc") or {}
+            pooled_metrics = values.get("individually_valid_row_metrics") or {}
+            pooled_auc = pooled_metrics.get("incremental_auc") or {}
+            joint_metrics = values.get("jointly_valid_pair_metrics") or {}
+            joint_auc = joint_metrics.get("incremental_auc") or {}
             lines.append(
-                f"| {contrast} | {values['matched_pairs']} | {values['valid_fragility_rows']} | "
-                f"{_format_metric(auc_values.get('baseline_auc'))} | "
-                f"{_format_metric(auc_values.get('augmented_auc'))} | "
-                f"{_format_metric(values.get('fragility_contamination_partial_rank'))} |"
+                f"| {contrast} | {values['matched_pairs']} | "
+                f"{values['individually_valid_fragility_rows']} | "
+                f"{values['jointly_valid_pair_count']} | "
+                f"{_format_metric(pooled_auc.get('baseline_auc'))} | "
+                f"{_format_metric(pooled_auc.get('augmented_auc'))} | "
+                f"{_format_metric(joint_auc.get('baseline_auc'))} | "
+                f"{_format_metric(joint_auc.get('augmented_auc'))} | "
+                f"{_format_metric(pooled_metrics.get('fragility_contamination_partial_rank'))} | "
+                f"{_format_metric(joint_metrics.get('fragility_contamination_partial_rank'))} |"
             )
     return "\n".join(lines) + "\n"
 

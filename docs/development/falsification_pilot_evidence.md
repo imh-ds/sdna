@@ -89,23 +89,24 @@ Structurally undefined rather than negative:
 The contrast layer matches clean and contaminated rows by `N`, `p`, and
 replication. “Matched cell” refers to this common simulation key; it does not
 mean that every reported statistic is a paired-difference statistic. The
-current summaries pool rows that are individually valid after matching, so a
-valid clean row can contribute even when its contaminated counterpart is
-censored, and vice versa. `Valid fragility rows` is therefore a row count, not
-the number of complete matched pairs. The implementation retains censored
-cell counts, but it does not currently restrict the AUC or rank calculations
-to cells where both sides are valid.
+the summaries report two explicitly separated populations. The pooled metrics
+use rows that are individually valid after matching, so a valid clean row can
+contribute even when its contaminated counterpart is censored, and vice versa.
+The jointly valid metrics use only cells where both sides have finite reached
+fragility values. `Individually valid rows` is therefore a row count, while
+`Jointly valid pairs` counts complete matched cells; neither count treats a
+censored value as zero.
 
 These are descriptive, matched-cell benchmarks rather than unbiased
 population estimates under the reach-dependent selection mechanism described
 above. The AUC values are learned-weight, in-sample benchmarks rather than
 out-of-sample predictive estimates.
 
-| Contrast | Matched pairs | Censored pairs | Valid fragility rows | Baseline AUC | Augmented AUC | Partial rank |
-|---|---:|---:|---:|---:|---:|---:|
-| `clean_vs_single_influential_case` | 90 | 51 | 124 | 0.632 | 0.685 | -0.249 |
-| `clean_vs_coalition_contamination` | 90 | 54 | 115 | 0.753 | 0.752 | -0.087 |
-| `clean_vs_mixture_subgroup` | 90 | 56 | 110 | 0.509 | 0.611 | 0.154 |
+| Contrast | Matched cells | Censored cells | Individually valid rows | Jointly valid pairs | Pooled baseline AUC | Pooled augmented AUC | Joint baseline AUC | Joint augmented AUC | Pooled partial rank | Joint partial rank |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `clean_vs_single_influential_case` | 90 | 51 | 124 | 39 | 0.632 | 0.685 | 0.613 | 0.661 | -0.249 | -0.350 |
+| `clean_vs_coalition_contamination` | 90 | 54 | 115 | 36 | 0.753 | 0.752 | 0.759 | 0.759 | -0.087 | -0.139 |
+| `clean_vs_mixture_subgroup` | 90 | 56 | 110 | 34 | 0.509 | 0.611 | 0.493 | 0.639 | 0.154 | 0.107 |
 
 These contrasts provide both contamination classes within a common simulation
 grid, avoiding the structural single-class limitation in the scenario-level
@@ -121,7 +122,7 @@ The same fixed-seed 540-row pilot was rerun with the committed
 `calibration_simulations=25` and `bootstrap_samples=100` settings. The
 certification/search limits were unchanged.
 
-| Execution profile | Calibration / bootstrap | Runtime | Paired contrast result |
+| Execution profile | Calibration / bootstrap | Runtime | Matched-cell contrast result |
 |---|---:|---:|---|
 | Reduced validation | 2 / 5 | 11.7 s | Same estimates reported above |
 | Committed pilot | 25 / 100 | 56.4 s | Same estimates to 3 decimals |

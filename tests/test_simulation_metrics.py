@@ -223,8 +223,18 @@ def test_summary_reports_paired_cross_scenario_contrast() -> None:
 
     assert result["matched_pairs"] == 4
     assert result["censored_pairs"] == 1
-    assert result["incremental_auc"]["augmented_auc"] >= result["incremental_auc"]["baseline_auc"]
-    assert result["fragility_contamination_partial_rank"] is not None
+    assert result["individually_valid_fragility_rows"] == 7
+    assert result["jointly_valid_pair_count"] == 3
+    assert result["jointly_valid_fragility_rows"] == 6
+    expected_joint_auc = incremental_auc(
+        [0, 1, 0, 1, 0, 1],
+        [0.1, 0.2, 0.2, 0.4, 0.3, 0.6],
+        [0.1, 0.8, 0.2, 0.7, 0.3, 0.9],
+    )
+    assert result["jointly_valid_pair_metrics"]["incremental_auc"] == expected_joint_auc
+    pooled_metrics = result["individually_valid_row_metrics"]
+    assert pooled_metrics["incremental_auc"]["augmented_auc"] >= pooled_metrics["incremental_auc"]["baseline_auc"]
+    assert pooled_metrics["fragility_contamination_partial_rank"] is not None
 
 
 def test_summary_omits_unmatched_cross_scenario_contrasts() -> None:
