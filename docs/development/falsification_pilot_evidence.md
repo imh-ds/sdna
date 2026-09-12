@@ -82,10 +82,29 @@ scenario-level summaries. They do not remove censoring: in each contrast the
 clean and contaminated reach rates differ, and the paired metrics use only
 the finite reached rows.
 
+## Budget sensitivity
+
+The same fixed-seed 540-row pilot was rerun with the committed
+`calibration_simulations=25` and `bootstrap_samples=100` settings. The
+certification/search limits were unchanged.
+
+| Execution profile | Calibration / bootstrap | Runtime | Paired contrast result |
+|---|---:|---:|---|
+| Reduced validation | 2 / 5 | 11.7 s | Same estimates reported above |
+| Committed pilot | 25 / 100 | 56.4 s | Same estimates to 3 decimals |
+
+The committed-budget run produced the following reference-tail availability
+counts out of 90 rows per scenario: clean 30, single influential 39,
+coalition 23, mixture 44, heavy tails 17, and collinearity 0. The reduced run
+counts were 33, 44, 24, 48, 17, and 0 respectively. This difference is
+expected because the reference-tail probability is censored if any of the
+calibration reference searches fails to reach; it is not evidence of a change
+in the underlying fragility contrast. No bootstrap resamples were rejected in
+either execution profile.
+
 ## Next methodological step
 
-Run a sensitivity pilot with the committed calibration/bootstrap budgets
-(`25`/`100`) while retaining the certification/search limits, then compare its
-contrast estimates and timing metadata with this reduced execution-validation
-run. Numerical optimization should remain deferred until that comparison
-shows a reproducible bottleneck rather than merely a reduced-budget runtime.
+Freeze the bounded pilot configuration and use these results to pre-specify
+which contrast metrics are descriptive, censored, or undefined. Numerical
+optimization remains deferred; the observed 56.4-second committed pilot is
+now the baseline against which any future optimization must be compared.
