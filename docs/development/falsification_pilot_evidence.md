@@ -56,6 +56,26 @@ Censored or unavailable:
 - Reference-tail probabilities are available only when the observed and
   reference searches produce the required reached counts.
 
+### Reach-based selection bias
+
+The missingness above is not assumed to be random. In this pilot, a row is
+reached only when the bounded greedy search finds the configured shrinkage
+threshold within `search_cap=2`. Reaching therefore depends on the observed,
+shrinkage-attenuated edge and can differ systematically by scenario and
+contamination status. The selection mechanism is consequently entangled with
+the quantity used to distinguish the classes: the reported metrics describe
+the subset of rows that reached, not an unbiased estimate for all simulated
+rows. The direction of any resulting bias in AUC or rank association is not
+known from this pilot.
+
+The certification budget is not the primary source of this pilot's missing
+rows. At `search_cap=2` and the configured sample sizes, the certification
+combination budget is not binding for reached rows; the dominant limitation is
+whether the bounded search reaches the threshold at all. The reach-rate
+differences, including 0% for `collinearity_stress` and 88.9% for
+`single_influential_case`, should therefore be treated as a selection warning
+as well as a runtime boundary.
+
 Structurally undefined rather than negative:
 
 - Incremental AUC and contamination partial-rank association are `null` for
@@ -64,12 +84,22 @@ Structurally undefined rather than negative:
   classes required for estimation. This must not be interpreted as evidence
   that fragility adds no information.
 
-## Paired cross-scenario contrasts
+## Matched-cell cross-scenario contrasts
 
-The paired contrast layer matches clean and contaminated rows by `N`, `p`,
-and replication. It excludes censored exact-fragility rows from the metric
-calculations while retaining their counts. The AUC values are learned-weight,
-in-sample benchmarks rather than out-of-sample predictive estimates.
+The contrast layer matches clean and contaminated rows by `N`, `p`, and
+replication. “Matched cell” refers to this common simulation key; it does not
+mean that every reported statistic is a paired-difference statistic. The
+current summaries pool rows that are individually valid after matching, so a
+valid clean row can contribute even when its contaminated counterpart is
+censored, and vice versa. `Valid fragility rows` is therefore a row count, not
+the number of complete matched pairs. The implementation retains censored
+cell counts, but it does not currently restrict the AUC or rank calculations
+to cells where both sides are valid.
+
+These are descriptive, matched-cell benchmarks rather than unbiased
+population estimates under the reach-dependent selection mechanism described
+above. The AUC values are learned-weight, in-sample benchmarks rather than
+out-of-sample predictive estimates.
 
 | Contrast | Matched pairs | Censored pairs | Valid fragility rows | Baseline AUC | Augmented AUC | Partial rank |
 |---|---:|---:|---:|---:|---:|---:|
@@ -77,10 +107,13 @@ in-sample benchmarks rather than out-of-sample predictive estimates.
 | `clean_vs_coalition_contamination` | 90 | 54 | 115 | 0.753 | 0.752 | -0.087 |
 | `clean_vs_mixture_subgroup` | 90 | 56 | 110 | 0.509 | 0.611 | 0.154 |
 
-These contrasts resolve the structural single-class limitation in the
-scenario-level summaries. They do not remove censoring: in each contrast the
-clean and contaminated reach rates differ, and the paired metrics use only
-the finite reached rows.
+These contrasts provide both contamination classes within a common simulation
+grid, avoiding the structural single-class limitation in the scenario-level
+summaries. They do not remove censoring or selection: in each contrast the
+clean and contaminated reach rates differ, and the reported metrics use only
+the finite reached rows that survive that outcome-dependent filter. The
+results should therefore be used for workflow validation and descriptive
+comparison, not as unbiased evidence of discriminative validity.
 
 ## Budget sensitivity
 
