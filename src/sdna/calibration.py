@@ -14,10 +14,12 @@ __all__ = ["calibrate_fragility"]
 def _reference_tail_probability(
     observed_count: int | None, reference_counts: list[int | None]
 ) -> float | None:
-    if observed_count is None or any(count is None for count in reference_counts):
+    """Estimate the empirical upper tail, retaining unreached references as censored."""
+    if observed_count is None:
         return None
-    counts = np.asarray(reference_counts, dtype=int)
-    return float((1 + np.count_nonzero(counts <= observed_count)) / (len(counts) + 1))
+    reached_counts = [count for count in reference_counts if count is not None]
+    counts = np.asarray(reached_counts, dtype=int)
+    return float((1 + np.count_nonzero(counts <= observed_count)) / (len(reference_counts) + 1))
 
 
 def _validated_generator_correlation(correlation: np.ndarray) -> np.ndarray:
@@ -44,7 +46,13 @@ def calibrate_fragility(
     search_cap: int | None = None,
     require_reached: bool = True,
 ) -> CalibrationResult:
-    """Calibrate observed fragility against clean matched reference data."""
+    """Calibrate observed fragility against clean matched reference data.
+
+    When ``require_reached`` is false, unreached reference searches are treated
+    as right-censored above any finite reached count and retained in the tail
+    probability denominator. The observed search must still reach for a finite
+    tail probability to be returned.
+    """
     if n_sim < 1:
         raise ValueError("n_sim must be positive")
     data = validate_data(X)

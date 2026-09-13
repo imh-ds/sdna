@@ -45,7 +45,7 @@ jobs:
         env:
           SMOKE_DIR: ${{ runner.temp }}/sdna-smoke
         run: >-
-          python tools/validate_smoke.py
+          python -m tools.validate_smoke
           "$SMOKE_DIR/results.csv"
           "$SMOKE_DIR/results.metadata.json"
           "$SMOKE_DIR/summary.json"

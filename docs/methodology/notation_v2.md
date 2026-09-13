@@ -74,13 +74,26 @@ Gaussian distribution with correlation `R`; each is then fit using fixed
 `lambda`. This avoids applying the shrinkage operation twice to an already
 shrunk generating matrix.
 
-For observed count `F_obs` and reference counts `F_1, ..., F_B`, when all counts
-are reached, the descriptive lower-tail reference probability is
+For calibration, distinguish the exact fragility minimum `F_ij` from the
+bounded greedy-search count `T`. If the observed greedy search reaches, write
+its count as `T_obs`; write a reached reference count as `T_b`. For a reference
+search that does not reach within the common cap `c`, record `T_b > c` as a
+right-censored observation. This is censoring of the bounded greedy-search
+procedure, not proof that the exact minimum `F_ij` exceeds `c`.
+
+In strict complete-reach mode, all `T_b` values must be observed. In censored
+mode, the observed search must reach, but unreached references remain in the
+denominator. The descriptive lower-tail reference probability is then
 
 ```text
 reference_tail_probability =
-    (1 + sum_b I(F_b <= F_obs)) / (B + 1).
+    (1 + sum_{b: T_b observed} I(T_b <= T_obs)) / (B + 1).
 ```
+
+An unreached reference therefore contributes to the denominator but not the
+numerator. If the observed search is unreached, the reference-tail probability
+is unavailable. When all searches reach, this reduces to the ordinary
+plus-one-corrected empirical tail calculation.
 
 The name deliberately avoids `p_value`: this quantity is conditional on the
 chosen reference model and search procedure, and formal inferential

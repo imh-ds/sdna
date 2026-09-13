@@ -54,4 +54,8 @@ def test_calibration_rejects_non_psd_generator(gaussian_data: np.ndarray, monkey
 def test_reference_tail_probability_uses_plus_one_correction() -> None:
     assert _reference_tail_probability(2, [1, 2, 4]) == pytest.approx(0.75)
     assert _reference_tail_probability(None, [1, 2]) is None
-    assert _reference_tail_probability(2, [1, None]) is None
+
+
+def test_reference_tail_probability_treats_unreached_references_as_right_censored() -> None:
+    assert _reference_tail_probability(2, [1, None]) == pytest.approx(2 / 3)
+    assert _reference_tail_probability(2, [None, None]) == pytest.approx(1 / 3)

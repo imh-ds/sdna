@@ -28,6 +28,10 @@ def wald_partial_correlation(
 
     The standard error ``(1-rho**2)/sqrt(N-p)`` is a benchmark approximation;
     it does not account for shrinkage uncertainty and is not a gold standard.
+    This comparator intentionally calls ``fit_network`` without a fixed
+    ``shrinkage`` value, so it re-estimates shrinkage for the full sample. It
+    is therefore an ordinary-partial benchmark, not a fixed-lambda SDNA
+    estimand for deletion or resampling analyses.
     """
     if not 0.0 < confidence < 1.0:
         raise ValueError("confidence must be between 0 and 1")

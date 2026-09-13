@@ -230,3 +230,105 @@ implementation consequence rather than silently changing an earlier record.
 - **Consequence:** Comparator reruns have explicit environment, seed, and
   session metadata; the lockfile still requires restoration in a networked R
   environment before execution.
+
+### Correction 9 — Treat unreached reference searches as right-censored
+
+- **Decision:** When the observed fragility search reaches, retain unreached
+  reference searches in the empirical tail-probability denominator and treat
+  their counts as greater than any finite reached count. Keep the strict
+  `require_reached=True` validation behavior for callers that require every
+  search to reach.
+- **Rationale:** An unreached reference search contains information: it did not
+  reach the target within the same bounded search region. Dropping the whole
+  calibration row discards that information and makes reference-tail
+  availability depend on every reference draw reaching.
+- **Consequence:** With `require_reached=False`, a finite observed count yields
+  a tail probability even when some reference counts are censored; a missing
+  observed count still yields `None`. The evidence report must distinguish
+  observed reach from the reference-reach fraction.
+
+### Correction 10 — Scope CI type checking and expand lint coverage
+
+- **Decision:** Run Ruff across `src`, `tests`, `simulations`, `benchmarks`, and
+  `tools`, while keeping strict mypy CI scoped to the distributable
+  `src/sdna` package.
+- **Rationale:** Ruff is clean across all five areas. Strict mypy currently
+  reports known typing errors in the experimental simulation and validation
+  harnesses, whose dynamically shaped records are not yet a stable package
+  type contract. Failing CI on those known harness errors would obscure the
+  clean package gate; omitting their lint coverage would leave a broader gap.
+- **Consequence:** Harness code is CI-checked by Ruff and tests, while a
+  separate typing-cleanup task is required before those directories can join
+  the strict mypy gate. The scope is documented in
+  `docs/development/ci_scope.md`.
+
+### Correction 11 — Keep the Wald comparator intentionally ordinary-partial
+
+- **Decision:** Keep `wald_partial_correlation` as an ordinary-partial,
+  full-sample benchmark that re-estimates shrinkage through
+  `fit_network(data)`. Do not add a fixed-shrinkage argument solely for API
+  symmetry with the SDNA deletion and calibration routines.
+- **Rationale:** The comparator is intended to provide ordinary uncertainty
+  context, not to claim the fixed-shrinkage deletion estimand. Adding an
+  unused parameter would imply comparability that the current Wald-like
+  standard-error approximation does not provide.
+- **Consequence:** Wald intervals and `z` statistics must be labeled as
+  ordinary-partial benchmark outputs. Any future fixed-lambda Wald resampling
+  requires a separate API and validation design.
+
+### Correction 12 — Make matched simulation cells unambiguous
+
+- **Decision:** Persist an ordinal `parameter_id` for every simulation job and
+  include it with `N`, `p`, and replication in the cross-scenario contrast key.
+  Treat parameter slots as aligned only when the caller configures them in the
+  same order across the scenarios being contrasted.
+- **Rationale:** Matching only on `N`, `p`, and replication silently makes
+  multi-valued clean or contamination settings ambiguous and drops those rows
+  from the contrast. An explicit parameter slot preserves one-to-one matching
+  and makes the population feeding each contrast auditable.
+- **Consequence:** Contrast reports now expose an unambiguous cell identity.
+  Different parameter values are not inferred to be matched unless their
+  parameter slots are deliberately aligned.
+
+### Correction 13 — Record benchmark provenance in JSON artifacts
+
+- **Decision:** Benchmark writers emit a metadata envelope containing the
+  benchmark name, git commit, package/Python/NumPy versions, and the matrix
+  settings used to generate the rows.
+- **Rationale:** Timing results without environment and configuration metadata
+  cannot be reliably reproduced or audited.
+- **Consequence:** Benchmark JSON retains the row data while also recording
+  the execution context and requested benchmark settings.
+
+### Correction 14 — Invoke the smoke validator as a repository module
+
+- **Decision:** The GitHub Actions smoke workflow invokes
+  `python -m tools.validate_smoke` rather than executing the validator by file
+  path.
+- **Rationale:** Executing `tools/validate_smoke.py` directly places `tools/`
+  ahead of the repository root on `sys.path`, so its import of the sibling
+  `simulations` package fails in CI.
+- **Consequence:** The smoke validator uses the same repository-root module
+  resolution as the simulation runner and can import `simulations` after the
+  editable package installation.
+
+## ADR-011 — Bound falsification-pilot certification and record timing
+
+- **Date:** 2026-09-11
+- **Decision:** Run the falsification pilot with `search_cap=2` and a
+  certification combination budget of `1000`. Record per-row elapsed seconds
+  plus aggregate per-scenario elapsed seconds and row counts in simulation
+  metadata.
+- **Rationale:** The initial reduced pilot remained dominated by exact
+  certification at the largest sample sizes. A two-deletion greedy bound and
+  bounded certification budget keep the pilot finite while preserving an
+  auditable distinction between reached, certified, and censored results.
+  Timing evidence makes future optimization decisions measurable rather than
+  speculative.
+- **Consequences:** Pilot rows that require a larger exact certification are
+  represented as uncertified/censored and their summary metrics remain
+  explicitly null where appropriate. The estimator and fragility algorithms
+  are unchanged; the pilot configuration is the practical pre-optimization
+  limit.
+- **Status:** Implemented in `simulations/configs/falsification_pilot.json`,
+  `simulations/run_simulation.py`, and `tools/validate_smoke.py`.

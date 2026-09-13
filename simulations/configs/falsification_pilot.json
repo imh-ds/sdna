@@ -1,8 +1,8 @@
 {
   "seed": 20260910,
-  "replications": 5,
-  "n_values": [30],
-  "p_values": [5],
+  "replications": 10,
+  "n_values": [50, 100, 150],
+  "p_values": [5, 10, 20],
   "scenarios": [
     "clean_planted_edge",
     "single_influential_case",
@@ -11,11 +11,12 @@
     "heavy_tails",
     "collinearity_stress"
   ],
-  "population_partial_r": [0.4],
+  "population_partial_r": [0.2],
   "contamination_cases": [3],
   "fragility_targets": [0.9, 0.7, 0.5, 0.3],
+  "search_cap": 2,
   "certification_combination_budget": 1000,
-  "calibration_simulations": 3,
-  "bootstrap_samples": 10,
+  "calibration_simulations": 25,
+  "bootstrap_samples": 100,
   "bootstrap_confidence": 0.95
 }

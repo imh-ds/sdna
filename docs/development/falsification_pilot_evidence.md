@@ -1,0 +1,156 @@
+# Falsification pilot evidence
+
+## Run definition
+
+This evidence uses the fixed-seed pilot configuration and the same 540-row grid
+as the original Task 13 run. The run used all six configured scenarios,
+`N=[50, 100, 150]`, `p=[5, 10, 20]`, and ten replications per cell, for 540
+rows total. To keep
+the validation run practical, it used the documented execution overrides
+`calibration_simulations=2` and `bootstrap_samples=5`; the committed pilot
+limits were `search_cap=2` and `certification_combination_budget=1000`.
+Reference-tail values in this report were regenerated using right-censored
+handling for unreached reference searches.
+
+The run used Python 3.12.1 and NumPy 2.5.2. It completed in 11.7 seconds on
+the development machine. This is workflow evidence, not a publication-level
+simulation result; the reduced calibration/bootstrap counts must be restored
+before drawing substantive operating-characteristic conclusions.
+
+## Scenario-level results
+
+The summary metrics use finite, reached exact-fragility rows only. A rate
+below 100% therefore indicates censoring from an unreached greedy search, not
+a zero-valued measurement. Reference-tail availability now follows whether
+the observed search reached; unreached reference draws are censored within the
+tail estimate rather than invalidating the row.
+
+| Scenario | Reached / certified | Reference tail available | Fragility vs `abs(rho)` | Fragility vs `abs(Wald z)` | Mean exact fragility | Influence recall |
+|---|---:|---:|---:|---:|---:|---:|
+| `clean_planted_edge` | 44 / 90 (48.9%) | 44 / 90 (48.9%) | 0.971 | 0.971 | 0.500 | n/a |
+| `single_influential_case` | 80 / 90 (88.9%) | 80 / 90 (88.9%) | 0.902 | 0.909 | 0.613 | 0.567 |
+| `coalition_contamination` | 71 / 90 (78.9%) | 71 / 90 (78.9%) | 0.864 | 0.852 | 1.268 | 0.689 |
+| `mixture_subgroup` | 66 / 90 (73.3%) | 66 / 90 (73.3%) | 0.969 | 0.969 | 0.530 | 0.151 |
+| `heavy_tails` | 19 / 90 (21.1%) | 19 / 90 (21.1%) | 0.998 | 0.998 | 0.211 | n/a |
+| `collinearity_stress` | 0 / 90 (0.0%) | 0 / 90 (0.0%) | n/a | n/a | n/a | n/a |
+
+The pilot also reported zero greedy-overestimation rate among rows that were
+reached and certified. Because the pilot search cap is two deletions, this
+does not establish that greedy search is exact beyond that bounded region.
+
+## Interpretation boundaries
+
+Finite in this pilot, subject to the censoring noted below:
+
+- Fragility/magnitude and fragility/Wald rank associations for the first five
+  scenarios.
+- Influence-recovery summaries for `single_influential_case`,
+  `coalition_contamination`, and `mixture_subgroup`.
+- Reach, certification, and reference-reach rates for all scenarios.
+- The clean false-flag rate, which was 1/44 (2.3%) among clean rows with an
+  available reference-tail probability at the configured 0.05 threshold.
+
+Censored or unavailable:
+
+- Every scenario has some censored rows; `heavy_tails` reached only 19/90 and
+  `collinearity_stress` reached none of its 90 rows.
+- Influence recovery is not defined for clean and heavy-tail rows because
+  those generators do not provide planted contaminated cases.
+- Exact fragility is not defined for the unreached rows and for all
+  collinearity rows.
+- Reference-tail probabilities are unavailable only when the observed search
+  itself is unreached. Unreached reference searches are retained as
+  right-censored draws above any finite observed count and remain in the
+  plus-one-corrected denominator.
+
+### Reach-based selection bias
+
+The missingness above is not assumed to be random. In this pilot, a row is
+reached only when the bounded greedy search finds the configured shrinkage
+threshold within `search_cap=2`. Reaching therefore depends on the observed,
+shrinkage-attenuated edge and can differ systematically by scenario and
+contamination status. The selection mechanism is consequently entangled with
+the quantity used to distinguish the classes: the reported metrics describe
+the subset of rows that reached, not an unbiased estimate for all simulated
+rows. The direction of any resulting bias in AUC or rank association is not
+known from this pilot.
+
+The certification budget is not the primary source of this pilot's missing
+rows. At `search_cap=2` and the configured sample sizes, the certification
+combination budget is not binding for reached rows; the dominant limitation is
+whether the bounded search reaches the threshold at all. The reach-rate
+differences, including 0% for `collinearity_stress` and 88.9% for
+`single_influential_case`, should therefore be treated as a selection warning
+as well as a runtime boundary.
+
+Structurally undefined rather than negative:
+
+- Incremental AUC and contamination partial-rank association are `null` for
+  every scenario. The current scenario-level grouping contains one
+  contamination class per scenario, so these metrics do not have the two
+  classes required for estimation. This must not be interpreted as evidence
+  that fragility adds no information.
+
+## Matched-cell cross-scenario contrasts
+
+The contrast layer matches clean and contaminated rows by `N`, `p`,
+`parameter_id`, and replication. `parameter_id` is the auditable ordinal
+parameter slot within each scenario's configured parameter list; matching
+parameter slots must be aligned by the caller when multiple parameter values
+are configured. Rows with different parameter values are not automatically
+treated as matched. “Matched cell” refers to this common simulation key; it
+does not mean that every reported statistic is a paired-difference statistic.
+The summaries report two explicitly separated populations. The pooled metrics
+use rows that are individually valid after matching, so a valid clean row can
+contribute even when its contaminated counterpart is censored, and vice versa.
+The jointly valid metrics use only cells where both sides have finite reached
+fragility values. `Individually valid rows` is therefore a row count, while
+`Jointly valid pairs` counts complete matched cells; neither count treats a
+censored value as zero.
+
+These are descriptive, matched-cell benchmarks rather than unbiased
+population estimates under the reach-dependent selection mechanism described
+above. The AUC values are learned-weight, in-sample benchmarks rather than
+out-of-sample predictive estimates.
+
+| Contrast | Matched cells | Censored cells | Individually valid rows | Jointly valid pairs | Pooled baseline AUC | Pooled augmented AUC | Joint baseline AUC | Joint augmented AUC | Pooled partial rank | Joint partial rank |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `clean_vs_single_influential_case` | 90 | 51 | 124 | 39 | 0.632 | 0.685 | 0.613 | 0.661 | -0.249 | -0.350 |
+| `clean_vs_coalition_contamination` | 90 | 54 | 115 | 36 | 0.753 | 0.752 | 0.759 | 0.759 | -0.087 | -0.139 |
+| `clean_vs_mixture_subgroup` | 90 | 56 | 110 | 34 | 0.509 | 0.611 | 0.493 | 0.639 | 0.154 | 0.107 |
+
+These contrasts provide both contamination classes within a common simulation
+grid, avoiding the structural single-class limitation in the scenario-level
+summaries. They do not remove censoring or selection: in each contrast the
+clean and contaminated reach rates differ, and the reported metrics use only
+the finite reached rows that survive that outcome-dependent filter. The
+results should therefore be used for workflow validation and descriptive
+comparison, not as unbiased evidence of discriminative validity.
+
+## Budget sensitivity
+
+The same fixed-seed 540-row pilot was rerun with the committed
+`calibration_simulations=25` and `bootstrap_samples=100` settings. The
+certification/search limits were unchanged.
+
+| Execution profile | Calibration / bootstrap | Runtime | Matched-cell contrast result |
+|---|---:|---:|---|
+| Reduced validation | 2 / 5 | 11.7 s | Same estimates reported above |
+| Committed pilot | 25 / 100 | 56.4 s | Same estimates to 3 decimals |
+
+With right-censored reference handling, both profiles produced the following
+reference-tail availability counts out of 90 rows per scenario: clean 44,
+single influential 80, coalition 71, mixture 66, heavy tails 19, and
+collinearity 0. Availability now follows whether the observed search reached;
+unreached reference draws still contribute to the probability denominator and
+are reported separately by `reference_reach_rate`. The reduced and committed
+profiles therefore differ in Monte Carlo precision, not in whether a finite
+tail probability is structurally available. No bootstrap resamples were
+rejected in either execution profile.
+
+## Next methodological step
+
+Freeze the bounded pilot configuration and use these results to pre-specify
+which contrast metrics are descriptive, censored, or undefined. Numerical
+optimization remains deferred; the observed 56.4-second committed pilot is
+now the baseline against which any future optimization must be compared.
