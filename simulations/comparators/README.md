@@ -42,6 +42,17 @@ should treat missing interval/statistic fields as unavailable, not as zero.
 
 ## Estimands and workflow distinctions
 
+### Python Wald comparator
+
+`wald_partial_correlation` is an intentional ordinary-partial benchmark. It
+fits the full data with `fit_network(data)` and therefore lets the estimator
+re-estimate its shrinkage value. It does not accept or reuse a fixed lambda
+from an SDNA deletion or calibration run. This keeps the comparator aligned
+with its ordinary-partial assumption, but means its interval and `z` statistic
+must not be described as uncertainty for the fixed-shrinkage SDNA estimand.
+Adding fixed-lambda Wald resampling would be a separate comparator design and
+would require its own API and validation.
+
 `ebicglasso.R` estimates an EBICglasso network through `bootnet`. If a positive
 bootstrap count is supplied, it writes two separate RDS artifacts:
 

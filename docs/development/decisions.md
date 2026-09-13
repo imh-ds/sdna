@@ -262,6 +262,20 @@ implementation consequence rather than silently changing an earlier record.
   the strict mypy gate. The scope is documented in
   `docs/development/ci_scope.md`.
 
+### Correction 11 — Keep the Wald comparator intentionally ordinary-partial
+
+- **Decision:** Keep `wald_partial_correlation` as an ordinary-partial,
+  full-sample benchmark that re-estimates shrinkage through
+  `fit_network(data)`. Do not add a fixed-shrinkage argument solely for API
+  symmetry with the SDNA deletion and calibration routines.
+- **Rationale:** The comparator is intended to provide ordinary uncertainty
+  context, not to claim the fixed-shrinkage deletion estimand. Adding an
+  unused parameter would imply comparability that the current Wald-like
+  standard-error approximation does not provide.
+- **Consequence:** Wald intervals and `z` statistics must be labeled as
+  ordinary-partial benchmark outputs. Any future fixed-lambda Wald resampling
+  requires a separate API and validation design.
+
 ## ADR-011 — Bound falsification-pilot certification and record timing
 
 - **Date:** 2026-09-11
