@@ -23,6 +23,17 @@ required status checks in GitHub branch protection. The full validation matrix
 remains a separate, explicitly invoked research workflow rather than a
 pull-request gate.
 
+The reduced validation matrix is defined in
+`simulations/configs/validation_matrix.json` and runs through
+`.github/workflows/validation-matrix.yml`. It is available through manual
+dispatch and runs weekly on Monday at 03:17 UTC. The fixed configuration covers
+all six scenarios, `N=[50, 100]`, `p=[5, 10]`, and two replications per cell
+(48 rows total), with five calibration simulations and twenty bootstrap draws.
+The workflow uses the smoke safety caps and uploads the exact configuration,
+run metadata, CSV results, JSON summary, and Markdown summary as a 30-day
+artifact. These outputs are reproducibility and workflow evidence, not
+publication-level operating-characteristic results.
+
 ## Ruff
 
 Ruff checks all repository Python areas that are part of the development
