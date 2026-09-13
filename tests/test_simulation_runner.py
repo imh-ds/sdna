@@ -57,6 +57,20 @@ def test_falsification_pilot_declares_bounded_certification_limits() -> None:
     assert config["certification_combination_budget"] == 1000
 
 
+def test_validation_matrix_is_fixed_and_reduced() -> None:
+    config = json.loads(
+        Path("simulations/configs/validation_matrix.json").read_text(encoding="utf-8")
+    )
+
+    assert config["seed"] == 20260910
+    assert config["replications"] == 2
+    assert config["n_values"] == [50, 100]
+    assert config["p_values"] == [5, 10]
+    assert config["calibration_simulations"] == 5
+    assert config["bootstrap_samples"] == 20
+    assert len(simulation_runner._jobs(config, config["replications"])) == 48
+
+
 def test_legacy_runner_rejects_ambiguous_multi_contamination_contrast_config() -> None:
     config = {
         "seed": 123,
