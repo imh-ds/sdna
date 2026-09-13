@@ -44,21 +44,34 @@ calibration result retains:
 - observed reach status and greedy count;
 - each reference reach status and greedy count;
 - each refitted reference edge estimate;
-- the descriptive lower-tail comparison when counts are available.
+- the descriptive lower-tail comparison when the observed count is available.
 
-By default, calibration requires the observed search and every reference search
-to reach the target. If that requirement is disabled, censored searches remain
-represented explicitly and the tail probability is `None` whenever a complete
-count comparison is impossible.
+The API has two reach-handling modes. By default,
+`require_reached=True` requires the observed search and every reference search
+to reach the target, and raises `CalibrationError` otherwise. This is the
+strict complete-reach mode. With `require_reached=False`, the observed search
+must still reach, but unreached reference searches remain represented as
+right-censored observations. An unreached reference means that the bounded
+greedy search did not reach the target within the common search cap; it is not
+evidence that the exact combinatorial minimum exceeds the cap.
 
 ## Reference tail probability
 
-When the observed count and all `B` reference counts are available, the
-implementation reports
+Let `T_obs` be the observed bounded-greedy count and let `T_b` be the count for
+reference draw `b`. When a reference search is unreached at cap `c`, its count
+is right-censored as `T_b > c`. In censored mode, when the observed search
+reaches, the implementation reports
 
 ```text
-p_ref = (1 + number of b with F_b <= F_obs) / (B + 1).
+p_ref = (1 + number of reached b with T_b <= T_obs) / (B + 1).
 ```
+
+Thus, an unreached reference remains in the denominator and does not contribute
+to the numerator. If the observed search is unreached, the tail probability is
+`None`. When every search reaches, the censored and strict modes produce the
+same calculation. These statements concern the bounded greedy-search
+procedure, not the exact combinatorial fragility minimum, because greedy
+search can miss another coalition within the cap.
 
 The public name is `reference_tail_probability`. Smaller observed fragility
 counts are treated as more fragile because fewer deletions are needed to reach

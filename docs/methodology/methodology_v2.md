@@ -102,10 +102,13 @@ fragility searches use the same edge, target, and search-cap settings as the
 observed search.
 
 The result includes simulated refitted edge estimates, reach indicators, and a
-lower-tail comparison named `reference_tail_probability`, using the plus-one
-correction when all required fragility counts are observed. This is a
-model-based descriptive reference probability, not a formal frequentist
-`p_value`; it does not by itself address multiplicity or guarantee calibration.
+lower-tail comparison named `reference_tail_probability`. Strict mode requires
+all searches to reach; censored mode retains unreached reference searches as
+right-censored observations beyond the common bounded greedy-search cap. The
+result is a model-based descriptive reference probability, not a formal
+frequentist `p_value`; it does not by itself address multiplicity or guarantee
+calibration. Censoring applies to the bounded greedy procedure and does not
+establish that the exact combinatorial fragility minimum exceeds the cap.
 See [`calibration_v2.md`](calibration_v2.md) for the operational details.
 
 ## Network- and case-level summaries
