@@ -454,3 +454,26 @@ implementation consequence rather than silently changing an earlier record.
 - **Status:** Recorded in
   [`falsification_pilot_evidence_v2.md`](falsification_pilot_evidence_v2.md);
   redesign deferred.
+
+## ADR-017 — Pre-specify a reach-boundary study before optimization
+
+- **Date:** 2026-09-13
+- **Decision:** Evaluate the v0.1 reach limitation with a separate, manual,
+  reach-only study before changing the estimator, search cap, or numerical
+  implementation. Freeze the seven arms in
+  [`reach_boundary_study_v1.md`](../methodology/reach_boundary_study_v1.md):
+  the cap-2 baseline, cap-3 and cap-4 sensitivity arms, a 70% target
+  sensitivity arm, and declared heavy-tail/collinearity severity arms.
+- **Rationale:** The primary evidence establishes outcome-dependent censoring
+  but cannot distinguish search-cap limitation from target difficulty or
+  numerical stress. Paired cap arms on the same simulated data and explicit
+  DGP severity arms provide that decomposition without retroactively changing
+  the frozen v0.1 estimand or selecting favorable cells.
+- **Consequences:** The next implementation adds a separate reach-boundary
+  artifact and transition summary. It must report numerical failures separately
+  from unreached searches, use the same primary row keys and seeds for paired
+  cap comparisons, and avoid calibration/bootstrap/AUC claims. No arm is
+  promoted automatically; any changed v0.1 workflow requires a new validation
+  specification and decision entry.
+- **Status:** Specification committed; execution and any redesign decision are
+  deferred to the next task.
