@@ -390,3 +390,42 @@ implementation consequence rather than silently changing an earlier record.
   new decision-log entry.
 - **Status:** Specification committed; primary matrix execution remains the
   next separate validation action.
+
+## ADR-014 — Validate primary runs under an explicit profile
+
+- **Date:** 2026-09-13
+- **Decision:** Add a `primary` profile to the simulation artifact validator.
+  The existing `validate_smoke` function remains the compatibility wrapper for
+  smoke runs, while the manually invoked primary-validation workflow validates
+  the full configured replication count and requires `metadata.smoke=False`.
+- **Rationale:** The smoke validator intentionally caps expected replications at
+  five and requires smoke metadata. Reusing it unchanged for the 10-replication
+  primary matrix could either reject a valid primary artifact or encourage an
+  unsafe smoke-capped acceptance check. An explicit profile makes the workload
+  and provenance contract visible at the command boundary.
+- **Consequence:** PR/reduced runs and primary runs share schema and invariant
+  checks but cannot be confused by their replication or metadata expectations.
+  The primary workflow remains manual-only and uploads its validated evidence
+  separately.
+- **Status:** Implemented in `tools/validate_smoke.py` and
+  `.github/workflows/primary-validation.yml`.
+
+## ADR-015 — Execute the pre-specified primary matrix without tuning
+
+- **Date:** 2026-09-13
+- **Decision:** Execute the frozen `falsification_pilot.json` matrix with the
+  `primary` validation profile before considering any estimator optimization or
+  matrix revision. The local run produced 540 rows, completed in approximately
+  55.3 seconds, and passed the profile-aware schema, provenance, and summary
+  invariants.
+- **Rationale:** The pre-specification is only useful if the declared workload
+  can be executed and audited under its full replication count. Running it
+  before tuning preserves a baseline against which future changes can be
+  compared.
+- **Consequence:** The run confirms executable bounded evidence, not favorable
+  operating characteristics or publication-level validity. Reach-dependent
+  censoring, undefined metrics, and scenario-specific limitations remain part
+  of the interpretation. The same primary run is available through the manual
+  GitHub Actions workflow after it is merged.
+- **Status:** Local primary execution completed; hosted workflow is available
+  for explicit dispatch.

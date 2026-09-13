@@ -1,4 +1,4 @@
-"""Validate the structural contract of a fixed-seed simulation smoke run."""
+"""Validate the structural contract of a fixed-seed simulation run."""
 
 from __future__ import annotations
 
@@ -9,11 +9,12 @@ import json
 import math
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from simulations.run_simulation import FIELDNAMES as EXPECTED_FIELDS
 
 FINITE_FIELDS = ("true_rho", "observed_rho", "lambda", "wald_z", "elapsed_seconds")
+ValidationProfile = Literal["smoke", "primary"]
 
 
 def _checksum(config: dict[str, Any]) -> str:
@@ -94,15 +95,26 @@ def _check_rate(value: float | None, field: str) -> None:
         raise ValueError(f"simulation field {field!r} must be between 0 and 1")
 
 
-def validate_smoke(
+def _expected_replications(config: dict[str, Any], profile: ValidationProfile) -> int:
+    """Return the profile-specific replication count expected in the results."""
+    configured = int(config["replications"])
+    if profile == "smoke":
+        return min(configured, 5)
+    if profile == "primary":
+        return configured
+    raise ValueError(f"unknown validation profile: {profile!r}")
+
+
+def validate_simulation(
     results_path: str | Path,
     metadata_path: str | Path,
     summary_path: str | Path,
     config_path: str | Path,
+    profile: ValidationProfile = "smoke",
 ) -> None:
-    """Raise ``ValueError`` when smoke artifacts violate their stable contract."""
+    """Raise ``ValueError`` when simulation artifacts violate their profile contract."""
     config = json.loads(Path(config_path).read_text(encoding="utf-8"))
-    replications = min(int(config["replications"]), 5)
+    replications = _expected_replications(config, profile)
     expected_scenarios = _expected_scenario_rows(config, replications)
     expected_rows = sum(expected_scenarios.values())
 
@@ -180,8 +192,10 @@ def validate_smoke(
         )
 
     metadata = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
-    if metadata.get("smoke") is not True:
-        raise ValueError("simulation metadata does not identify a smoke run")
+    expected_smoke = profile == "smoke"
+    if metadata.get("smoke") is not expected_smoke:
+        run_kind = "smoke" if expected_smoke else "primary"
+        raise ValueError(f"simulation metadata does not identify a {run_kind} run")
     if metadata.get("rows") != expected_rows:
         raise ValueError("simulation metadata row count does not match results")
     if metadata.get("config_checksum") != _checksum(config):
@@ -252,15 +266,27 @@ def validate_smoke(
                 raise ValueError(f"summary falsification rate is invalid for {scenario!r}: {field}")
 
 
+def validate_smoke(
+    results_path: str | Path,
+    metadata_path: str | Path,
+    summary_path: str | Path,
+    config_path: str | Path,
+) -> None:
+    """Raise ``ValueError`` when smoke artifacts violate their stable contract."""
+    validate_simulation(results_path, metadata_path, summary_path, config_path, profile="smoke")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("results", type=Path)
     parser.add_argument("metadata", type=Path)
     parser.add_argument("summary", type=Path)
     parser.add_argument("config", type=Path)
+    parser.add_argument("--profile", choices=("smoke", "primary"), default="smoke")
     args = parser.parse_args()
-    validate_smoke(args.results, args.metadata, args.summary, args.config)
-    print(f"Smoke validation passed for {args.results}")
+    validate_simulation(args.results, args.metadata, args.summary, args.config, args.profile)
+    label = "Smoke" if args.profile == "smoke" else "Primary simulation"
+    print(f"{label} validation passed for {args.results}")
 
 
 if __name__ == "__main__":

@@ -6,8 +6,9 @@ from types import SimpleNamespace
 import pytest
 
 import simulations.run_simulation as simulation_runner
+from simulations.summarize import summarize_results
 from simulations.run_simulation import replication_seeds, run_simulation
-from tools.validate_smoke import validate_smoke
+from tools.validate_smoke import validate_simulation, validate_smoke
 
 
 def test_runner_dispatches_all_falsification_scenarios() -> None:
@@ -90,6 +91,38 @@ def test_validation_matrix_is_fixed_and_reduced() -> None:
     assert config["calibration_simulations"] == 5
     assert config["bootstrap_samples"] == 20
     assert len(simulation_runner._jobs(config, config["replications"])) == 48
+
+
+def test_primary_validator_accepts_full_configured_replications(tmp_path) -> None:
+    config = {
+        "seed": 7,
+        "replications": 6,
+        "n_values": [12],
+        "p_values": [3],
+        "scenarios": ["clean_planted_edge"],
+        "population_partial_r": [0.0],
+        "contamination_cases": [0],
+        "fragility_targets": [0.5],
+        "certification_combination_budget": 100,
+        "calibration_simulations": 1,
+        "bootstrap_samples": 2,
+    }
+    config_path = tmp_path / "config.json"
+    results_path = tmp_path / "results.csv"
+    summary_path = tmp_path / "summary.json"
+    markdown_path = tmp_path / "summary.md"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+
+    run_simulation(config_path, results_path, smoke=False)
+    summarize_results(results_path, summary_path, markdown_path)
+
+    validate_simulation(
+        results_path,
+        results_path.with_suffix(".metadata.json"),
+        summary_path,
+        config_path,
+        profile="primary",
+    )
 
 
 def test_legacy_runner_rejects_ambiguous_multi_contamination_contrast_config() -> None:

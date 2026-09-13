@@ -1,0 +1,75 @@
+name: SDNA v0.1 primary validation
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: primary-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Frozen 540-row primary matrix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Prepare artifact directory
+        env:
+          VALIDATION_DIR: ${{ runner.temp }}/sdna-primary-validation
+        run: |
+          mkdir -p "$VALIDATION_DIR"
+          cp simulations/configs/falsification_pilot.json "$VALIDATION_DIR/falsification_pilot.json"
+          {
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "event=$GITHUB_EVENT_NAME"
+            echo "sha=$GITHUB_SHA"
+          } > "$VALIDATION_DIR/github-run.txt"
+
+      - name: Run frozen primary matrix
+        env:
+          VALIDATION_DIR: ${{ runner.temp }}/sdna-primary-validation
+        run: |
+          python -m simulations.run_simulation \
+            simulations/configs/falsification_pilot.json \
+            "$VALIDATION_DIR/results.csv"
+
+      - name: Create machine-readable and Markdown summaries
+        env:
+          VALIDATION_DIR: ${{ runner.temp }}/sdna-primary-validation
+        run: >-
+          python -c "from simulations.summarize import summarize_results; summarize_results('$VALIDATION_DIR/results.csv', '$VALIDATION_DIR/summary.json', '$VALIDATION_DIR/summary.md')"
+
+      - name: Validate primary schema and invariants
+        env:
+          VALIDATION_DIR: ${{ runner.temp }}/sdna-primary-validation
+        run: >-
+          python -m tools.validate_smoke
+          --profile primary
+          "$VALIDATION_DIR/results.csv"
+          "$VALIDATION_DIR/results.metadata.json"
+          "$VALIDATION_DIR/summary.json"
+          simulations/configs/falsification_pilot.json
+
+      - name: Upload primary validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdna-primary-validation-${{ github.run_id }}
+          path: ${{ runner.temp }}/sdna-primary-validation
+          if-no-files-found: error
+          retention-days: 90
