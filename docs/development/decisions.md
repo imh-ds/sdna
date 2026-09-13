@@ -501,3 +501,28 @@ implementation consequence rather than silently changing an earlier record.
   baseline.
 - **Status:** Workflow and local evidence report committed; hosted dispatch and
   final hosted evidence update remain the next repository-level action.
+
+## ADR-019 — Accept the hosted reach-boundary artifact as the v0.1 boundary record
+
+- **Date:** 2026-09-13
+- **Decision:** Accept hosted run
+  [`34784346096`](https://github.com/imh-ds/sdna/actions/runs/34784346096)
+  on commit `d32f5478b1eb943f93357515cba0fa5cb78ccd1e` as the technical
+  reach-boundary evidence record. Retain cap 2 as the v0.1 primary workflow;
+  treat cap 3, cap 4, the 70% target, and the stress arms as diagnostic
+  sensitivity results only.
+- **Rationale:** The hosted Python 3.11 run produced all 2,430 declared rows,
+  passed manifest/provenance/schema validation, had zero numerical errors, and
+  reproduced the local rehearsal's row keys, seeds, statuses, and reach
+  values. Cap 3 and cap 4 newly reached 36 and 63 paired rows, respectively,
+  while the collinearity arms reached none. This separates an observed
+  cap-sensitive availability boundary from a justification to alter the
+  primary estimand.
+- **Consequences:** The complete hosted artifact and paired transition tables
+  are now the baseline for any future cap-expansion proposal. No estimator,
+  cap, target, or regularization change is authorized by this result alone.
+  The report records a non-blocking GitHub warning that the v4 Actions used in
+  the workflow target Node.js 20 and were forced onto Node.js 24; this is a
+  maintenance item, not a failed validation result.
+- **Status:** Hosted evidence accepted; redesign or scope change deferred to a
+  separately pre-specified methodological task.
