@@ -231,6 +231,22 @@ implementation consequence rather than silently changing an earlier record.
   session metadata; the lockfile still requires restoration in a networked R
   environment before execution.
 
+### Correction 9 — Treat unreached reference searches as right-censored
+
+- **Decision:** When the observed fragility search reaches, retain unreached
+  reference searches in the empirical tail-probability denominator and treat
+  their counts as greater than any finite reached count. Keep the strict
+  `require_reached=True` validation behavior for callers that require every
+  search to reach.
+- **Rationale:** An unreached reference search contains information: it did not
+  reach the target within the same bounded search region. Dropping the whole
+  calibration row discards that information and makes reference-tail
+  availability depend on every reference draw reaching.
+- **Consequence:** With `require_reached=False`, a finite observed count yields
+  a tail probability even when some reference counts are censored; a missing
+  observed count still yields `None`. The evidence report must distinguish
+  observed reach from the reference-reach fraction.
+
 ## ADR-011 — Bound falsification-pilot certification and record timing
 
 - **Date:** 2026-09-11
