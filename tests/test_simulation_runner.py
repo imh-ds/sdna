@@ -57,6 +57,27 @@ def test_falsification_pilot_declares_bounded_certification_limits() -> None:
     assert config["certification_combination_budget"] == 1000
 
 
+def test_falsification_pilot_is_the_frozen_v01_matrix() -> None:
+    config = json.loads(
+        Path("simulations/configs/falsification_pilot.json").read_text(encoding="utf-8")
+    )
+
+    assert config["seed"] == 20260910
+    assert config["replications"] == 10
+    assert config["n_values"] == [50, 100, 150]
+    assert config["p_values"] == [5, 10, 20]
+    assert config["scenarios"] == list(simulation_runner.SCENARIO_NAMES)
+    assert config["population_partial_r"] == [0.2]
+    assert config["contamination_cases"] == [3]
+    assert config["fragility_targets"] == [0.9, 0.7, 0.5, 0.3]
+    assert config["search_cap"] == 2
+    assert config["certification_combination_budget"] == 1000
+    assert config["calibration_simulations"] == 25
+    assert config["bootstrap_samples"] == 100
+    assert config["bootstrap_confidence"] == 0.95
+    assert len(simulation_runner._jobs(config, config["replications"])) == 540
+
+
 def test_validation_matrix_is_fixed_and_reduced() -> None:
     config = json.loads(
         Path("simulations/configs/validation_matrix.json").read_text(encoding="utf-8")

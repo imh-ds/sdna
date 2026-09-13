@@ -367,3 +367,26 @@ implementation consequence rather than silently changing an earlier record.
 - **Status:** Implemented in
   `simulations/configs/validation_matrix.json` and
   `.github/workflows/validation-matrix.yml`.
+
+## ADR-013 — Freeze the v0.1 primary validation matrix before execution
+
+- **Date:** 2026-09-13
+- **Decision:** Treat `simulations/configs/falsification_pilot.json` as the
+  pre-specified v0.1 primary matrix: six scenarios, `N=[50, 100, 150]`,
+  `p=[5, 10, 20]`, ten replications per cell, calibration simulations `25`,
+  bootstrap draws `100`, `search_cap=2`, certification budget `1000`, and
+  fixed root seed `20260910`. Document its estimands, censoring rules, matched
+  populations, technical acceptance checks, and interpretation boundaries in
+  `docs/methodology/validation_matrix_v1.md`.
+- **Rationale:** The reduced Actions matrix verifies execution and artifact
+  provenance but is too small to serve as the primary methodological evidence.
+  Freezing the larger bounded pilot before its next execution prevents
+  post-hoc selection of cells, metrics, or reach handling while preserving the
+  practical runtime limits established by Task 19.
+- **Consequence:** The primary run remains bounded methodological evidence,
+  not publication-level validation. Reach-dependent censoring, null metrics,
+  and matched-cell populations must be reported explicitly. Any change to the
+  matrix or interpretation rules requires a new specification version and a
+  new decision-log entry.
+- **Status:** Specification committed; primary matrix execution remains the
+  next separate validation action.
