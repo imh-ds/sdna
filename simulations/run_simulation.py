@@ -139,8 +139,15 @@ def _jobs(
     for n in config["n_values"]:
         for p in config["p_values"]:
             if configured_scenarios is None:
+                contamination_values = [int(value) for value in config["contamination_cases"]]
+                positive_contamination = [value for value in contamination_values if value > 0]
+                if 0 in contamination_values and len(positive_contamination) > 1:
+                    raise ValueError(
+                        "legacy configurations with multiple positive contamination cases "
+                        "and clean rows require explicit scenarios for unambiguous contrasts"
+                    )
                 for parameter_id, rho in enumerate(config["population_partial_r"]):
-                    for contamination_count in config["contamination_cases"]:
+                    for contamination_count in contamination_values:
                         scenario = (
                             "coalition_contamination"
                             if contamination_count

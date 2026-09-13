@@ -57,6 +57,24 @@ def test_falsification_pilot_declares_bounded_certification_limits() -> None:
     assert config["certification_combination_budget"] == 1000
 
 
+def test_legacy_runner_rejects_ambiguous_multi_contamination_contrast_config() -> None:
+    config = {
+        "seed": 123,
+        "replications": 1,
+        "n_values": [8],
+        "p_values": [3],
+        "population_partial_r": [0.2],
+        "contamination_cases": [0, 1, 3],
+        "fragility_targets": [0.5],
+        "certification_combination_budget": 20,
+        "calibration_simulations": 1,
+        "bootstrap_samples": 2,
+    }
+
+    with pytest.raises(ValueError, match="explicit scenarios"):
+        simulation_runner._run(config, smoke=False)
+
+
 def test_runner_records_full_influence_and_reach_measurements() -> None:
     config = {
         "seed": 123,

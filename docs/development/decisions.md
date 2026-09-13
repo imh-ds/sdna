@@ -312,6 +312,20 @@ implementation consequence rather than silently changing an earlier record.
   resolution as the simulation runner and can import `simulations` after the
   editable package installation.
 
+### Correction 15 — Reject ambiguous legacy contrast configurations
+
+- **Decision:** Reject legacy configurations without an explicit `scenarios`
+  list when they combine clean rows with more than one positive contamination
+  count. Require the explicit scenario configuration for those multi-valued
+  contrasts.
+- **Rationale:** The legacy job layout does not repeat clean rows for each
+  contamination condition, so multiple positive counts cannot be assigned a
+  one-to-one matched cell without inventing a pairing rule. Raising an error is
+  safer than silently dropping ambiguous contrast rows.
+- **Consequence:** Existing single-contamination legacy runs remain supported.
+  Multi-valued legacy contrast runs must use explicit scenario lists and their
+  aligned parameter slots.
+
 ## ADR-011 — Bound falsification-pilot certification and record timing
 
 - **Date:** 2026-09-11
