@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 import tools.run_reach_boundary as reach_boundary
+from tools.summarize_reach_boundary import summarize_rows
 from tools.reach_boundary_manifest import (
     expand_reach_boundary_jobs,
     load_reach_boundary_manifest,
@@ -175,3 +176,70 @@ def test_runner_preserves_pairing_and_records_row_failures(
     assert rows[1]["status"] == "error"
     assert rows[1]["error_type"] == "LinAlgError"
     assert rows[1]["reached"] == ""
+
+
+def _summary_row(
+    arm: str,
+    replication: int,
+    *,
+    reached: bool | None,
+    greedy_count: int | None,
+    status: str = "ok",
+) -> dict[str, object]:
+    return {
+        "arm": arm,
+        "scenario": "heavy_tails",
+        "parameter_id": 0,
+        "parameter": None,
+        "replication": replication,
+        "seed": replication + 100,
+        "N": 50,
+        "p": 5,
+        "fragility_target": 0.5,
+        "search_cap": 2 if arm == "baseline_cap2" else 3,
+        "reached": reached,
+        "greedy_count": greedy_count,
+        "cap_exhausted": reached is False,
+        "full_value": 0.2 if status == "ok" else None,
+        "final_value": 0.1 if status == "ok" else None,
+        "trajectory": "[0.2, 0.1]" if status == "ok" else None,
+        "shrinkage": 0.1 if status == "ok" else None,
+        "rank": 5 if status == "ok" else None,
+        "min_eigenvalue_correlation": 0.1 if status == "ok" else None,
+        "min_eigenvalue_shrunk_correlation": 0.2 if status == "ok" else None,
+        "condition_number": 10.0 if status == "ok" else None,
+        "elapsed_seconds": 0.1,
+        "status": status,
+        "error_type": "LinAlgError" if status == "error" else None,
+        "error_message": "forced failure" if status == "error" else None,
+    }
+
+
+def test_summary_reports_paired_transitions_and_separates_errors_from_censoring() -> None:
+    rows = [
+        _summary_row("baseline_cap2", 0, reached=False, greedy_count=None),
+        _summary_row("cap3", 0, reached=True, greedy_count=3),
+        _summary_row("baseline_cap2", 1, reached=False, greedy_count=None),
+        _summary_row("cap3", 1, reached=True, greedy_count=3),
+        _summary_row("baseline_cap2", 2, reached=True, greedy_count=2),
+        _summary_row("cap3", 2, reached=True, greedy_count=3),
+        _summary_row("baseline_cap2", 3, reached=False, greedy_count=None),
+        _summary_row("cap3", 3, reached=None, greedy_count=None, status="error"),
+    ]
+
+    comparison = summarize_rows(rows)["comparisons"]["cap3"]
+
+    assert comparison["matched_pairs"] == 4
+    assert comparison["transition_counts"] == {
+        "0_to_0": 0,
+        "0_to_1": 2,
+        "1_to_0": 0,
+        "1_to_1": 1,
+    }
+    assert comparison["baseline_error_rows"] == 0
+    assert comparison["candidate_error_rows"] == 1
+    assert comparison["baseline_censored_rows"] == 3
+    assert comparison["candidate_censored_rows"] == 0
+    assert comparison["newly_reached_rows"] == 2
+    assert comparison["median_greedy_count_newly_reached"] == 3.0
+    assert comparison["median_extra_deletions_both_reached"] == 1.0
