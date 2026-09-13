@@ -135,6 +135,9 @@ def validate_smoke(
                 raise ValueError(f"simulation field {field!r} must be between -1 and 1")
         if _required_float(row, "lambda") <= 0.0:
             raise ValueError("simulation field 'lambda' must be positive")
+        parameter_id = int(row["parameter_id"])
+        if parameter_id < 0:
+            raise ValueError("parameter_id must be nonnegative")
         int(row["replication"])
         int(row["seed"])
         if int(row["N"]) < 4 or int(row["p"]) < 2:

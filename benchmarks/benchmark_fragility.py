@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from time import perf_counter
 from typing import Any
 
 import numpy as np
 
+from benchmarks.provenance import write_payload
 from sdna.calibration import calibrate_fragility
 from sdna.estimation import fit_network
 from sdna.fragility import FragilityTarget, greedy_fragility
@@ -108,9 +108,14 @@ def run_benchmark_matrix(
     return rows
 
 
-def write_results(rows: list[dict[str, Any]], output: str | Path) -> None:
-    """Write benchmark rows as indented JSON."""
-    Path(output).write_text(json.dumps({"rows": rows}, indent=2) + "\n", encoding="utf-8")
+def write_results(
+    rows: list[dict[str, Any]],
+    output: str | Path,
+    *,
+    settings: dict[str, Any] | None = None,
+) -> None:
+    """Write benchmark rows and reproducibility provenance as indented JSON."""
+    write_payload("fragility", rows, output, settings)
 
 
 def main() -> None:
@@ -137,7 +142,17 @@ def main() -> None:
             f"reference_reached={row['calibration_reference_reached_fraction']:.3f}"
         )
     if args.output is not None:
-        write_results(rows, args.output)
+        write_results(
+            rows,
+            args.output,
+            settings={
+                "seed": args.seed,
+                "calibration_simulations": args.calibration_simulations,
+                "search_cap": args.search_cap,
+                "n_values": args.n_values,
+                "p_values": args.p_values,
+            },
+        )
 
 
 if __name__ == "__main__":

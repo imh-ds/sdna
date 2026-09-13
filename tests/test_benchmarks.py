@@ -64,8 +64,27 @@ def test_benchmark_results_write_json(tmp_path) -> None:
     influence_rows = [{"N": 8, "p": 3, "exact_loo_seconds": 0.1}]
     fragility_rows = [{"N": 8, "p": 3, "calibration_seconds": 0.2}]
 
-    write_influence_results(influence_rows, influence_output)
-    write_fragility_results(fragility_rows, fragility_output)
+    influence_settings = {"seed": 123, "repeats": 1, "n_values": [8], "p_values": [3]}
+    fragility_settings = {
+        "seed": 456,
+        "calibration_simulations": 2,
+        "search_cap": 2,
+        "n_values": [8],
+        "p_values": [3],
+    }
+    write_influence_results(influence_rows, influence_output, settings=influence_settings)
+    write_fragility_results(fragility_rows, fragility_output, settings=fragility_settings)
 
-    assert json.loads(influence_output.read_text()) == {"rows": influence_rows}
-    assert json.loads(fragility_output.read_text()) == {"rows": fragility_rows}
+    influence_payload = json.loads(influence_output.read_text())
+    fragility_payload = json.loads(fragility_output.read_text())
+    assert influence_payload["rows"] == influence_rows
+    assert fragility_payload["rows"] == fragility_rows
+    assert influence_payload["metadata"]["benchmark"] == "influence"
+    assert fragility_payload["metadata"]["benchmark"] == "fragility"
+    assert influence_payload["metadata"]["settings"] == influence_settings
+    assert fragility_payload["metadata"]["settings"] == fragility_settings
+    for payload in (influence_payload, fragility_payload):
+        assert payload["metadata"]["package_version"]
+        assert payload["metadata"]["python_version"]
+        assert payload["metadata"]["numpy_version"]
+        assert "git_commit" in payload["metadata"]

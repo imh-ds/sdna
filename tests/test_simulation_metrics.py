@@ -95,6 +95,7 @@ def hand_computable_paired_contrast_rows() -> list[dict[str, str | None]]:
         contaminated_exact,
     ) in enumerate(values):
         common = {
+            "parameter_id": "0",
             "replication": str(replication),
             "N": str(n),
             "p": str(p),
@@ -271,3 +272,13 @@ def test_summary_omits_unmatched_cross_scenario_contrasts() -> None:
 
     assert result["matched_pairs"] == 3
     assert result["unmatched_contaminated_rows"] == 1
+
+
+def test_summary_disambiguates_multi_parameter_contrast_cells() -> None:
+    rows = hand_computable_paired_contrast_rows()
+    rows.extend({**row, "parameter_id": "1"} for row in list(rows))
+
+    result = summarize_rows(rows)["paired_contrasts"]["clean_vs_coalition_contamination"]
+
+    assert result["matched_pairs"] == 8
+    assert result["ambiguous_keys"] == 0

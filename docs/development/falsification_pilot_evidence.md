@@ -93,10 +93,14 @@ Structurally undefined rather than negative:
 
 ## Matched-cell cross-scenario contrasts
 
-The contrast layer matches clean and contaminated rows by `N`, `p`, and
-replication. “Matched cell” refers to this common simulation key; it does not
-mean that every reported statistic is a paired-difference statistic. The
-the summaries report two explicitly separated populations. The pooled metrics
+The contrast layer matches clean and contaminated rows by `N`, `p`,
+`parameter_id`, and replication. `parameter_id` is the auditable ordinal
+parameter slot within each scenario's configured parameter list; matching
+parameter slots must be aligned by the caller when multiple parameter values
+are configured. Rows with different parameter values are not automatically
+treated as matched. “Matched cell” refers to this common simulation key; it
+does not mean that every reported statistic is a paired-difference statistic.
+The summaries report two explicitly separated populations. The pooled metrics
 use rows that are individually valid after matching, so a valid clean row can
 contribute even when its contaminated counterpart is censored, and vice versa.
 The jointly valid metrics use only cells where both sides have finite reached

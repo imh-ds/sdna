@@ -41,7 +41,7 @@ SCENARIO_NAMES = (
 )
 
 FIELDNAMES = [
-    "scenario", "replication", "seed", "N", "p", "fragility_target", "true_rho",
+    "scenario", "parameter_id", "replication", "seed", "N", "p", "fragility_target", "true_rho",
     "observed_rho", "lambda",
     "contamination_count", "contamination_status", "greedy_fragility_50", "exact_fragility_50",
     "certified", "reached", "reference_tail_probability", "reference_reached_fraction",
@@ -130,14 +130,16 @@ def generate_scenario(
     return collinearity_stress(n, p, rng, focal_edge=edge)
 
 
-def _jobs(config: dict[str, Any], replications: int) -> list[tuple[int, int, str, int | None, int]]:
+def _jobs(
+    config: dict[str, Any], replications: int
+) -> list[tuple[int, int, str, float | int | None, int, int]]:
     """Build deterministic simulation jobs, preserving legacy config behavior."""
-    jobs: list[tuple[int, int, str, int | None, int]] = []
+    jobs: list[tuple[int, int, str, float | int | None, int, int]] = []
     configured_scenarios = config.get("scenarios")
     for n in config["n_values"]:
         for p in config["p_values"]:
             if configured_scenarios is None:
-                for rho in config["population_partial_r"]:
+                for parameter_id, rho in enumerate(config["population_partial_r"]):
                     for contamination_count in config["contamination_cases"]:
                         scenario = (
                             "coalition_contamination"
@@ -148,7 +150,9 @@ def _jobs(config: dict[str, Any], replications: int) -> list[tuple[int, int, str
                             int(contamination_count) if contamination_count else float(rho)
                         )
                         for replication in range(replications):
-                            jobs.append((int(n), int(p), scenario, parameter, replication))
+                            jobs.append(
+                                (int(n), int(p), scenario, parameter, parameter_id, replication)
+                            )
                 continue
             for scenario in configured_scenarios:
                 if scenario not in SCENARIO_NAMES:
@@ -164,9 +168,11 @@ def _jobs(config: dict[str, Any], replications: int) -> list[tuple[int, int, str
                         raise ValueError("coalition_contamination requires a positive count")
                 else:
                     parameters = [None]
-                for parameter in parameters:
+                for parameter_id, parameter in enumerate(parameters):
                     for replication in range(replications):
-                        jobs.append((int(n), int(p), scenario, parameter, replication))
+                        jobs.append(
+                            (int(n), int(p), scenario, parameter, parameter_id, replication)
+                        )
     return jobs
 
 
@@ -190,7 +196,7 @@ def _run(
         raise ValueError("fragility_targets must include 0.5 for the *_50 output fields")
     target_value = 0.5
     target = FragilityTarget("relative", target_value)
-    for seed_index, (n, p, scenario, parameter, replication) in enumerate(jobs):
+    for seed_index, (n, p, scenario, parameter, parameter_id, replication) in enumerate(jobs):
         row_started = perf_counter()
         row_seed = seeds[seed_index]
         rng = np.random.default_rng(row_seed)
@@ -252,6 +258,7 @@ def _run(
             )
         row = {
             "scenario": scenario,
+            "parameter_id": parameter_id,
             "replication": replication,
             "seed": row_seed,
             "N": n,

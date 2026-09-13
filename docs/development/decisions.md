@@ -276,6 +276,42 @@ implementation consequence rather than silently changing an earlier record.
   ordinary-partial benchmark outputs. Any future fixed-lambda Wald resampling
   requires a separate API and validation design.
 
+### Correction 12 — Make matched simulation cells unambiguous
+
+- **Decision:** Persist an ordinal `parameter_id` for every simulation job and
+  include it with `N`, `p`, and replication in the cross-scenario contrast key.
+  Treat parameter slots as aligned only when the caller configures them in the
+  same order across the scenarios being contrasted.
+- **Rationale:** Matching only on `N`, `p`, and replication silently makes
+  multi-valued clean or contamination settings ambiguous and drops those rows
+  from the contrast. An explicit parameter slot preserves one-to-one matching
+  and makes the population feeding each contrast auditable.
+- **Consequence:** Contrast reports now expose an unambiguous cell identity.
+  Different parameter values are not inferred to be matched unless their
+  parameter slots are deliberately aligned.
+
+### Correction 13 — Record benchmark provenance in JSON artifacts
+
+- **Decision:** Benchmark writers emit a metadata envelope containing the
+  benchmark name, git commit, package/Python/NumPy versions, and the matrix
+  settings used to generate the rows.
+- **Rationale:** Timing results without environment and configuration metadata
+  cannot be reliably reproduced or audited.
+- **Consequence:** Benchmark JSON retains the row data while also recording
+  the execution context and requested benchmark settings.
+
+### Correction 14 — Invoke the smoke validator as a repository module
+
+- **Decision:** The GitHub Actions smoke workflow invokes
+  `python -m tools.validate_smoke` rather than executing the validator by file
+  path.
+- **Rationale:** Executing `tools/validate_smoke.py` directly places `tools/`
+  ahead of the repository root on `sys.path`, so its import of the sibling
+  `simulations` package fails in CI.
+- **Consequence:** The smoke validator uses the same repository-root module
+  resolution as the simulation runner and can import `simulations` after the
+  editable package installation.
+
 ## ADR-011 — Bound falsification-pilot certification and record timing
 
 - **Date:** 2026-09-11

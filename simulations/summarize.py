@@ -199,13 +199,14 @@ def summarize_scenario_rows(rows: Sequence[Row]) -> dict[str, Any]:
     return _falsification_summary(rows)
 
 
-def _contrast_key(row: Row) -> tuple[int, int, int] | None:
+def _contrast_key(row: Row) -> tuple[int, int, int, int] | None:
     n, p, replication = [
         _optional_float(row, field) for field in ("N", "p", "replication")
     ]
-    if n is None or p is None or replication is None:
+    parameter_id = _optional_float(row, "parameter_id")
+    if n is None or p is None or parameter_id is None or replication is None:
         return None
-    return int(n), int(p), int(replication)
+    return int(n), int(p), int(parameter_id), int(replication)
 
 
 def _valid_fragility_row(row: Row) -> bool:
@@ -252,8 +253,8 @@ def _paired_contrast_summary(
     clean_scenario: str,
     contaminated_scenario: str,
 ) -> dict[str, Any]:
-    clean_groups: dict[tuple[int, int, int], list[Row]] = defaultdict(list)
-    contaminated_groups: dict[tuple[int, int, int], list[Row]] = defaultdict(list)
+    clean_groups: dict[tuple[int, int, int, int], list[Row]] = defaultdict(list)
+    contaminated_groups: dict[tuple[int, int, int, int], list[Row]] = defaultdict(list)
     for row in clean_rows:
         if (key := _contrast_key(row)) is not None:
             clean_groups[key].append(row)
