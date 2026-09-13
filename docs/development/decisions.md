@@ -247,6 +247,21 @@ implementation consequence rather than silently changing an earlier record.
   observed count still yields `None`. The evidence report must distinguish
   observed reach from the reference-reach fraction.
 
+### Correction 10 — Scope CI type checking and expand lint coverage
+
+- **Decision:** Run Ruff across `src`, `tests`, `simulations`, `benchmarks`, and
+  `tools`, while keeping strict mypy CI scoped to the distributable
+  `src/sdna` package.
+- **Rationale:** Ruff is clean across all five areas. Strict mypy currently
+  reports known typing errors in the experimental simulation and validation
+  harnesses, whose dynamically shaped records are not yet a stable package
+  type contract. Failing CI on those known harness errors would obscure the
+  clean package gate; omitting their lint coverage would leave a broader gap.
+- **Consequence:** Harness code is CI-checked by Ruff and tests, while a
+  separate typing-cleanup task is required before those directories can join
+  the strict mypy gate. The scope is documented in
+  `docs/development/ci_scope.md`.
+
 ## ADR-011 — Bound falsification-pilot certification and record timing
 
 - **Date:** 2026-09-11

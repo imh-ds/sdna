@@ -29,8 +29,11 @@ jobs:
         run: python -m pip install -e ".[dev]"
 
       - name: Lint
-        run: ruff check src tests simulations
+        run: ruff check src tests simulations benchmarks tools
 
+      # The distributable library is the current strict mypy contract.
+      # Simulation, benchmark, and validation harness typing is documented in
+      # docs/development/ci_scope.md and remains covered by Ruff and tests.
       - name: Type check
         run: mypy --python-version "${{ matrix.python-version }}" src/sdna
 
