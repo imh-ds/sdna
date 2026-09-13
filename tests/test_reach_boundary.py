@@ -12,11 +12,11 @@ import numpy as np
 import pytest
 
 import tools.run_reach_boundary as reach_boundary
-from tools.summarize_reach_boundary import summarize_rows
 from tools.reach_boundary_manifest import (
     expand_reach_boundary_jobs,
     load_reach_boundary_manifest,
 )
+from tools.summarize_reach_boundary import summarize_rows
 
 
 MANIFEST_PATH = Path("simulations/configs/reach_boundary_v1.json")

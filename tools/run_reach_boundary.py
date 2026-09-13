@@ -22,8 +22,8 @@ from sdna.results import FragilityResult
 from simulations.dgp import (
     SimulatedDataset,
     clean_planted_edge,
-    collinearity_stress,
     coalition_contamination,
+    collinearity_stress,
     heavy_tails,
     mixture_subgroup,
     single_influential_case,

@@ -7,9 +7,10 @@ import hashlib
 import json
 import math
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from pathlib import Path
 from statistics import median
-from typing import Any, Iterable
+from typing import Any
 
 from tools.reach_boundary_manifest import (
     expand_reach_boundary_jobs,

@@ -74,7 +74,7 @@ _EXPECTED_ARM_DEFINITIONS = {
 
 def _require_mapping(value: object, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
-        raise ValueError(f"{label} must be an object")
+        raise TypeError(f"{label} must be an object")
     return value
 
 
@@ -86,7 +86,7 @@ def _require_int(value: object, label: str, *, minimum: int = 1) -> int:
 
 def _require_float(value: object, label: str, *, lower: float, upper: float) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{label} must be numeric")
+        raise TypeError(f"{label} must be numeric")
     parsed = float(value)
     if not math.isfinite(parsed) or not lower < parsed < upper:
         raise ValueError(f"{label} must be strictly between {lower} and {upper}")
@@ -130,7 +130,7 @@ def _validate_arm(arm: dict[str, Any], manifest: dict[str, Any]) -> None:
     _require_int(arm.get("search_cap"), f"{name} search_cap")
     overrides = arm.get("dgp_overrides")
     if not isinstance(overrides, dict):
-        raise ValueError(f"{name} dgp_overrides must be an object")
+        raise TypeError(f"{name} dgp_overrides must be an object")
     allowed = {"degrees_of_freedom", "adjacent_correlation"}
     if not set(overrides).issubset(allowed):
         raise ValueError(f"{name} has an unsupported DGP override")
