@@ -429,3 +429,28 @@ implementation consequence rather than silently changing an earlier record.
   GitHub Actions workflow after it is merged.
 - **Status:** Local primary execution completed; hosted workflow is available
   for explicit dispatch.
+
+## ADR-016 — Treat low reach as a declared v0.1 boundary pending redesign
+
+- **Date:** 2026-09-13
+- **Decision:** Retain all six scenario families in the v0.1 primary evidence,
+  including `heavy_tails` and `collinearity_stress`, but interpret their
+  unreached rows as censored and report their finite denominators explicitly.
+  Do not increase the search cap, retune the estimator, or optimize numerical
+  routines in response to the primary result without a new pre-specified
+  study.
+- **Rationale:** The hosted 540-row run passed the complete simulation and
+  artifact-validation workflow, while reach varied materially by scenario:
+  `heavy_tails` reached 19/90 and `collinearity_stress` reached 0/90. This is
+  evidence of a practical availability boundary, not evidence that the
+  corresponding finite-case estimands are uniformly valid or that the runner
+  failed. Removing low-reach scenarios or post-hoc widening the search cap
+  would confound availability and method behavior.
+- **Consequences:** v0.1 claims are restricted to reached/certified rows and
+  the displayed pooled or jointly valid denominators. The collinearity stress
+  scenario supplies no finite fragility evidence in the primary run. A future
+  reach-improvement or scope-narrowing proposal requires a separate target,
+  baseline comparison, and validation specification.
+- **Status:** Recorded in
+  [`falsification_pilot_evidence_v2.md`](falsification_pilot_evidence_v2.md);
+  redesign deferred.
