@@ -477,3 +477,27 @@ implementation consequence rather than silently changing an earlier record.
   specification and decision entry.
 - **Status:** Specification committed; execution and any redesign decision are
   deferred to the next task.
+
+## ADR-018 — Keep the reach-boundary diagnostic manual-only and retain cap 2 pending hosted confirmation
+
+- **Date:** 2026-09-13
+- **Decision:** Add a manual-only GitHub Actions workflow for the complete
+  2,430-row reach-boundary study, with 90-day artifact retention and strict
+  manifest/provenance validation. Retain `search_cap=2` as the v0.1 primary
+  workflow pending hosted confirmation; do not promote cap 3, cap 4, the 70%
+  target, or a stress-arm change from this diagnostic rehearsal.
+- **Rationale:** The local execution passed all technical acceptance checks and
+  showed paired cap sensitivity, but it was run under Python 3.12 rather than
+  the workflow's required Python 3.11 environment. A manually dispatched,
+  artifact-uploading workflow provides the reproducible hosted record without
+  adding a recurring job or changing the primary matrix. The observed reach
+  differences are useful for designing a future cap-expansion study, but do
+  not establish a new full-workflow runtime or certification budget.
+- **Consequences:** The reach-boundary workflow is not a pull-request gate and
+  is not scheduled weekly. The evidence report distinguishes local rehearsal
+  from the pending hosted run and keeps errors, censoring, and reached greedy
+  results as separate states. Any production cap change requires a new
+  pre-specified validation task and comparison against the frozen cap-2
+  baseline.
+- **Status:** Workflow and local evidence report committed; hosted dispatch and
+  final hosted evidence update remain the next repository-level action.
