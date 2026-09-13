@@ -10,42 +10,52 @@ v0.1 primary matrix, certify greedy results, or provide calibration,
 bootstrap, AUC, or inferential evidence.
 
 The manual-only hosted workflow is committed in
-[`reach-boundary.yml`](../../.github/workflows/reach-boundary.yml). The hosted
-run is intentionally pending until this branch is available on GitHub. The
-tables below are from the complete local rehearsal at the recorded artifact
-commit, not from a claimed hosted run.
+[`reach-boundary.yml`](../../.github/workflows/reach-boundary.yml). The
+tables below are from the successful hosted run; the local rehearsal is
+reported separately as a reproducibility comparison.
 
-## Local rehearsal provenance
+## Hosted execution provenance
 
 | Field | Value |
 |---|---|
-| Commit | `16bfe14f9fcb95d2474b6caff69dc7729dc7c0a1` |
-| Python | `3.12.14` |
-| NumPy | `2.5.1` |
+| Workflow run | [`34784346096`](https://github.com/imh-ds/sdna/actions/runs/34784346096) |
+| Commit | `d32f5478b1eb943f93357515cba0fa5cb78ccd1e` |
+| Ref | `main` |
+| Python | `3.11.16` |
+| NumPy | `2.4.6` |
 | Package | `0.1.0a0` |
 | Manifest checksum | `6fbb95ac26c45bf6f1a0791c528b80b70870c0457d756ffbe626d2719773c794` |
 | Rows | `2,430` |
 | Statuses | `2,430 ok`, `0 error` |
-| Runtime | `23.865 seconds` |
-| Hosted run | pending; no run ID is claimed here |
+| Runtime | `14.249 seconds` |
+| Artifact | `sdna-reach-boundary-34784346096` |
 
-The local artifact was generated with the frozen
-`simulations/configs/reach_boundary_v1.json` manifest and passed the complete
-manifest, schema, finite-diagnostic, provenance, and summary validation.
-The workflow uses Python 3.11 as required by the study contract; its hosted
-metadata must be recorded after dispatch.
+The hosted workflow completed the full run, summary, manifest/provenance
+validation, and 90-day artifact upload. The hosted artifact is the
+authoritative evidence record for this study.
+
+## Local reproducibility comparison
+
+The preceding local rehearsal used commit `16bfe14f`, Python `3.12.14`, and
+NumPy `2.5.1`, and completed in `23.865 seconds`. Against the hosted CSV, it
+had identical row keys, seeds, statuses, and reach values for all 2,430 rows.
+Floating diagnostics were also numerically close: the largest absolute
+difference was `8.1e-11` for condition number, and every compared diagnostic
+was within `1e-12` relative/absolute tolerance. This supports reproducibility
+of the discrete reach conclusions while retaining the environment metadata
+needed to interpret small floating-point differences.
 
 ## Arm counts and reach
 
-| Arm | Rows | Reached | Censored | Errors | Reach rate | Median condition number | Runtime (s) |
+| Arm | Rows | Reached | Censored | Errors | Reach rate | Median condition number | Hosted runtime (s) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `baseline_cap2` | 540 | 280 | 260 | 0 | 51.9% | 1.168 | 1.975 |
-| `cap3` | 540 | 316 | 224 | 0 | 58.5% | 1.168 | 5.366 |
-| `cap4` | 540 | 343 | 197 | 0 | 63.5% | 1.168 | 8.009 |
-| `target07_cap2` | 540 | 340 | 200 | 0 | 63.0% | 1.168 | 4.793 |
-| `heavy_df8` | 90 | 14 | 76 | 0 | 15.6% | 1.260 | 1.051 |
-| `collinear_rho90` | 90 | 0 | 90 | 0 | 0.0% | 101.125 | 1.188 |
-| `collinear_rho99` | 90 | 0 | 90 | 0 | 0.0% | 336.693 | 1.189 |
+| `baseline_cap2` | 540 | 280 | 260 | 0 | 51.9% | 1.168 | 2.645 |
+| `cap3` | 540 | 316 | 224 | 0 | 58.5% | 1.168 | 3.296 |
+| `cap4` | 540 | 343 | 197 | 0 | 63.5% | 1.168 | 3.892 |
+| `target07_cap2` | 540 | 340 | 200 | 0 | 63.0% | 1.168 | 2.429 |
+| `heavy_df8` | 90 | 14 | 76 | 0 | 15.6% | 1.260 | 0.532 |
+| `collinear_rho90` | 90 | 0 | 90 | 0 | 0.0% | 101.125 | 0.598 |
+| `collinear_rho99` | 90 | 0 | 90 | 0 | 0.0% | 336.693 | 0.597 |
 
 The baseline arm's scenario totals are `44/90`, `80/90`, `71/90`, `66/90`,
 `19/90`, and `0/90` for `clean_planted_edge`,
@@ -70,13 +80,13 @@ declared alternative DGPs.
 | `collinear_rho90` | 90 | 90 | 0 | 0 | 0 | 0 | 0 | 0.0 pp | n/a | n/a |
 | `collinear_rho99` | 90 | 90 | 0 | 0 | 0 | 0 | 0 | 0.0 pp | n/a | n/a |
 
-Errors are reported separately from censoring. In this rehearsal there were no
-numerical errors; `0 -> 0` includes two jointly unreached searches, not failed
+Errors are reported separately from censoring. In the hosted run there were no
+numerical errors; `0 -> 0` includes jointly unreached searches, not failed
 rows.
 
 ## Interpretation boundaries
 
-The local rehearsal supports these bounded observations:
+The hosted run supports these bounded observations:
 
 - Increasing the cap from two to three and four deletions creates 36 and 63
   newly reached paired rows, respectively. The cap-2 result is therefore
@@ -104,17 +114,16 @@ Do not silently promote cap-3, cap-4, the 70% target, or a stress-arm change
 into the production workflow. If improved availability is scientifically
 required, draft a separate cap-expansion specification that includes the full
 simulation workflow, certification budget, runtime, and the same paired
-failure/censoring contract. Hosted execution is required before treating the
-local rehearsal as the final evidence record.
+failure/censoring contract.
 
 The remaining limitations are:
 
-- the current report is a local Python 3.12 rehearsal, not a hosted Python
-  3.11 run;
 - reach is outcome-dependent and is not assumed missing at random;
 - the study is reach-only and supplies no new calibration, bootstrap, AUC, or
   exact-minimum evidence;
 - the stress-arm sample sizes are 90 rows and the per-cell denominators are
   ten, so the results are diagnostic rather than stable population estimates;
-- a hosted run ID, hosted timing, and hosted environment metadata must be
-  appended after the manual workflow is dispatched.
+- GitHub emitted a non-blocking Node.js 20 deprecation warning for the v4
+  checkout, setup-python, and upload-artifact actions; the run passed, but
+  those action versions should be revisited before the hosted runner removes
+  its compatibility fallback.
