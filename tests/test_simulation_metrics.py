@@ -237,6 +237,28 @@ def test_summary_reports_paired_cross_scenario_contrast() -> None:
     assert pooled_metrics["fragility_contamination_partial_rank"] is not None
 
 
+def test_contrast_metrics_use_exact_row_populations() -> None:
+    summary = summarize_rows(hand_computable_paired_contrast_rows())
+    result = summary["paired_contrasts"]["clean_vs_coalition_contamination"]
+
+    assert result["individually_valid_clean_fragility_rows"] == 4
+    assert result["individually_valid_contaminated_fragility_rows"] == 3
+    assert result["jointly_valid_pair_count"] == 3
+
+    expected_pooled_auc = incremental_auc(
+        [0, 1, 0, 1, 0, 1, 0],
+        [0.1, 0.2, 0.2, 0.4, 0.3, 0.6, 0.4],
+        [0.1, 0.8, 0.2, 0.7, 0.3, 0.9, 0.4],
+    )
+    expected_joint_auc = incremental_auc(
+        [0, 1, 0, 1, 0, 1],
+        [0.1, 0.2, 0.2, 0.4, 0.3, 0.6],
+        [0.1, 0.8, 0.2, 0.7, 0.3, 0.9],
+    )
+    assert result["individually_valid_row_metrics"]["incremental_auc"] == expected_pooled_auc
+    assert result["jointly_valid_pair_metrics"]["incremental_auc"] == expected_joint_auc
+
+
 def test_summary_omits_unmatched_cross_scenario_contrasts() -> None:
     rows = hand_computable_paired_contrast_rows()
     rows = [
