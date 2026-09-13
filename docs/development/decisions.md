@@ -429,3 +429,75 @@ implementation consequence rather than silently changing an earlier record.
   GitHub Actions workflow after it is merged.
 - **Status:** Local primary execution completed; hosted workflow is available
   for explicit dispatch.
+
+## ADR-016 — Treat low reach as a declared v0.1 boundary pending redesign
+
+- **Date:** 2026-09-13
+- **Decision:** Retain all six scenario families in the v0.1 primary evidence,
+  including `heavy_tails` and `collinearity_stress`, but interpret their
+  unreached rows as censored and report their finite denominators explicitly.
+  Do not increase the search cap, retune the estimator, or optimize numerical
+  routines in response to the primary result without a new pre-specified
+  study.
+- **Rationale:** The hosted 540-row run passed the complete simulation and
+  artifact-validation workflow, while reach varied materially by scenario:
+  `heavy_tails` reached 19/90 and `collinearity_stress` reached 0/90. This is
+  evidence of a practical availability boundary, not evidence that the
+  corresponding finite-case estimands are uniformly valid or that the runner
+  failed. Removing low-reach scenarios or post-hoc widening the search cap
+  would confound availability and method behavior.
+- **Consequences:** v0.1 claims are restricted to reached/certified rows and
+  the displayed pooled or jointly valid denominators. The collinearity stress
+  scenario supplies no finite fragility evidence in the primary run. A future
+  reach-improvement or scope-narrowing proposal requires a separate target,
+  baseline comparison, and validation specification.
+- **Status:** Recorded in
+  [`falsification_pilot_evidence_v2.md`](falsification_pilot_evidence_v2.md);
+  redesign deferred.
+
+## ADR-017 — Pre-specify a reach-boundary study before optimization
+
+- **Date:** 2026-09-13
+- **Decision:** Evaluate the v0.1 reach limitation with a separate, manual,
+  reach-only study before changing the estimator, search cap, or numerical
+  implementation. Freeze the seven arms in
+  [`reach_boundary_study_v1.md`](../methodology/reach_boundary_study_v1.md):
+  the cap-2 baseline, cap-3 and cap-4 sensitivity arms, a 70% target
+  sensitivity arm, and declared heavy-tail/collinearity severity arms.
+- **Rationale:** The primary evidence establishes outcome-dependent censoring
+  but cannot distinguish search-cap limitation from target difficulty or
+  numerical stress. Paired cap arms on the same simulated data and explicit
+  DGP severity arms provide that decomposition without retroactively changing
+  the frozen v0.1 estimand or selecting favorable cells.
+- **Consequences:** The next implementation adds a separate reach-boundary
+  artifact and transition summary. It must report numerical failures separately
+  from unreached searches, use the same primary row keys and seeds for paired
+  cap comparisons, and avoid calibration/bootstrap/AUC claims. No arm is
+  promoted automatically; any changed v0.1 workflow requires a new validation
+  specification and decision entry.
+- **Status:** Specification committed; execution and any redesign decision are
+  deferred to the next task.
+
+## ADR-018 — Keep the reach-boundary diagnostic manual-only and retain cap 2 pending hosted confirmation
+
+- **Date:** 2026-09-13
+- **Decision:** Add a manual-only GitHub Actions workflow for the complete
+  2,430-row reach-boundary study, with 90-day artifact retention and strict
+  manifest/provenance validation. Retain `search_cap=2` as the v0.1 primary
+  workflow pending hosted confirmation; do not promote cap 3, cap 4, the 70%
+  target, or a stress-arm change from this diagnostic rehearsal.
+- **Rationale:** The local execution passed all technical acceptance checks and
+  showed paired cap sensitivity, but it was run under Python 3.12 rather than
+  the workflow's required Python 3.11 environment. A manually dispatched,
+  artifact-uploading workflow provides the reproducible hosted record without
+  adding a recurring job or changing the primary matrix. The observed reach
+  differences are useful for designing a future cap-expansion study, but do
+  not establish a new full-workflow runtime or certification budget.
+- **Consequences:** The reach-boundary workflow is not a pull-request gate and
+  is not scheduled weekly. The evidence report distinguishes local rehearsal
+  from the pending hosted run and keeps errors, censoring, and reached greedy
+  results as separate states. Any production cap change requires a new
+  pre-specified validation task and comparison against the frozen cap-2
+  baseline.
+- **Status:** Workflow and local evidence report committed; hosted dispatch and
+  final hosted evidence update remain the next repository-level action.

@@ -1,0 +1,75 @@
+name: SDNA reach-boundary diagnostic
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: reach-boundary-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reach-boundary:
+    name: Full 2,430-row reach-boundary study
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Prepare artifact directory and provenance
+        env:
+          REACH_BOUNDARY_DIR: ${{ runner.temp }}/sdna-reach-boundary
+        run: |
+          mkdir -p "$REACH_BOUNDARY_DIR"
+          cp simulations/configs/reach_boundary_v1.json "$REACH_BOUNDARY_DIR/reach_boundary_v1.json"
+          {
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "event=$GITHUB_EVENT_NAME"
+            echo "ref=$GITHUB_REF"
+            echo "sha=$GITHUB_SHA"
+          } > "$REACH_BOUNDARY_DIR/github-run.txt"
+          {
+            echo "python -m tools.run_reach_boundary simulations/configs/reach_boundary_v1.json $REACH_BOUNDARY_DIR/results.csv"
+            echo "python -m tools.summarize_reach_boundary $REACH_BOUNDARY_DIR/results.csv $REACH_BOUNDARY_DIR/results.metadata.json $REACH_BOUNDARY_DIR/summary.json $REACH_BOUNDARY_DIR/summary.md simulations/configs/reach_boundary_v1.json --validate"
+          } > "$REACH_BOUNDARY_DIR/commands.txt"
+
+      - name: Run the complete reach-boundary study
+        env:
+          REACH_BOUNDARY_DIR: ${{ runner.temp }}/sdna-reach-boundary
+        run: >-
+          python -m tools.run_reach_boundary
+          simulations/configs/reach_boundary_v1.json
+          "$REACH_BOUNDARY_DIR/results.csv"
+
+      - name: Summarize and validate the artifact
+        env:
+          REACH_BOUNDARY_DIR: ${{ runner.temp }}/sdna-reach-boundary
+        run: >-
+          python -m tools.summarize_reach_boundary
+          "$REACH_BOUNDARY_DIR/results.csv"
+          "$REACH_BOUNDARY_DIR/results.metadata.json"
+          "$REACH_BOUNDARY_DIR/summary.json"
+          "$REACH_BOUNDARY_DIR/summary.md"
+          simulations/configs/reach_boundary_v1.json
+          --validate
+
+      - name: Upload reach-boundary artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdna-reach-boundary-${{ github.run_id }}
+          path: ${{ runner.temp }}/sdna-reach-boundary
+          if-no-files-found: error
+          retention-days: 90

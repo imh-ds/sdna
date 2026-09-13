@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "seed": 20260910,
+  "replications": 10,
+  "n_values": [50, 100, 150],
+  "p_values": [5, 10, 20],
+  "scenarios": [
+    "clean_planted_edge",
+    "single_influential_case",
+    "coalition_contamination",
+    "mixture_subgroup",
+    "heavy_tails",
+    "collinearity_stress"
+  ],
+  "focal_edge": [0, 1],
+  "population_partial_r": [0.2],
+  "contamination_cases": [3],
+  "expected_rows": 2430,
+  "arms": [
+    {
+      "name": "baseline_cap2",
+      "scenario_scope": [
+        "clean_planted_edge",
+        "single_influential_case",
+        "coalition_contamination",
+        "mixture_subgroup",
+        "heavy_tails",
+        "collinearity_stress"
+      ],
+      "target": 0.5,
+      "search_cap": 2,
+      "dgp_overrides": {}
+    },
+    {
+      "name": "cap3",
+      "scenario_scope": [
+        "clean_planted_edge",
+        "single_influential_case",
+        "coalition_contamination",
+        "mixture_subgroup",
+        "heavy_tails",
+        "collinearity_stress"
+      ],
+      "target": 0.5,
+      "search_cap": 3,
+      "dgp_overrides": {}
+    },
+    {
+      "name": "cap4",
+      "scenario_scope": [
+        "clean_planted_edge",
+        "single_influential_case",
+        "coalition_contamination",
+        "mixture_subgroup",
+        "heavy_tails",
+        "collinearity_stress"
+      ],
+      "target": 0.5,
+      "search_cap": 4,
+      "dgp_overrides": {}
+    },
+    {
+      "name": "target07_cap2",
+      "scenario_scope": [
+        "clean_planted_edge",
+        "single_influential_case",
+        "coalition_contamination",
+        "mixture_subgroup",
+        "heavy_tails",
+        "collinearity_stress"
+      ],
+      "target": 0.7,
+      "search_cap": 2,
+      "dgp_overrides": {}
+    },
+    {
+      "name": "heavy_df8",
+      "scenario_scope": ["heavy_tails"],
+      "target": 0.5,
+      "search_cap": 2,
+      "dgp_overrides": {"degrees_of_freedom": 8.0}
+    },
+    {
+      "name": "collinear_rho90",
+      "scenario_scope": ["collinearity_stress"],
+      "target": 0.5,
+      "search_cap": 2,
+      "dgp_overrides": {"adjacent_correlation": 0.9}
+    },
+    {
+      "name": "collinear_rho99",
+      "scenario_scope": ["collinearity_stress"],
+      "target": 0.5,
+      "search_cap": 2,
+      "dgp_overrides": {"adjacent_correlation": 0.99}
+    }
+  ]
+}
