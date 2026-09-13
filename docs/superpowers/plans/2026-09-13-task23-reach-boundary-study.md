@@ -25,6 +25,7 @@
 
 **Files:**
 - Create: `simulations/configs/reach_boundary_v1.json`
+- Create: `tools/reach_boundary_manifest.py`
 - Test: `tests/test_reach_boundary.py`
 
 **Interfaces:**
