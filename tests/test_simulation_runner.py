@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import pytest
 
 import simulations.run_simulation as simulation_runner
-from simulations.summarize import summarize_results
 from simulations.run_simulation import replication_seeds, run_simulation
+from simulations.summarize import summarize_results
 from tools.validate_smoke import validate_simulation, validate_smoke
 
 
