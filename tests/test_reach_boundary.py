@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import copy
+import csv
 import json
 from collections import Counter
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+import tools.run_reach_boundary as reach_boundary
 from tools.reach_boundary_manifest import (
     expand_reach_boundary_jobs,
     load_reach_boundary_manifest,
@@ -118,3 +121,57 @@ def test_reach_boundary_manifest_rejects_changed_frozen_arm_definition(
 
     with pytest.raises(ValueError, match="cap3"):
         load_reach_boundary_manifest(_write_manifest(tmp_path, data))
+
+
+def test_runner_preserves_pairing_and_records_row_failures(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    manifest = load_reach_boundary_manifest(MANIFEST_PATH)
+    all_jobs = expand_reach_boundary_jobs(manifest)
+    baseline_job = next(job for job in all_jobs if job["arm"] == "baseline_cap2")
+    pairing_key = tuple(
+        baseline_job[field]
+        for field in ("scenario", "N", "p", "parameter_id", "replication")
+    )
+    jobs = [
+        job
+        for job in all_jobs
+        if tuple(
+            job[field]
+            for field in ("scenario", "N", "p", "parameter_id", "replication")
+        )
+        == pairing_key
+        and job["arm"] in {"baseline_cap2", "cap3"}
+    ]
+    monkeypatch.setattr(reach_boundary, "expand_reach_boundary_jobs", lambda _: jobs)
+
+    generated: list[tuple[str, np.ndarray]] = []
+    original_generate = reach_boundary.generate_reach_boundary_dataset
+
+    def tracked_generate(job: dict[str, object], rng: np.random.Generator, manifest: dict[str, object]):
+        dataset = original_generate(job, rng, manifest)
+        generated.append((str(job["arm"]), dataset.X.copy()))
+        return dataset
+
+    monkeypatch.setattr(reach_boundary, "generate_reach_boundary_dataset", tracked_generate)
+    original_greedy = reach_boundary.greedy_fragility
+
+    def fail_cap3(*args: object, **kwargs: object):
+        if kwargs.get("search_cap") == 3:
+            raise np.linalg.LinAlgError("forced row failure")
+        return original_greedy(*args, **kwargs)
+
+    monkeypatch.setattr(reach_boundary, "greedy_fragility", fail_cap3)
+
+    output_path = tmp_path / "reach-boundary.csv"
+    reach_boundary.run_reach_boundary(MANIFEST_PATH, output_path)
+
+    with output_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [row["arm"] for row in rows] == ["baseline_cap2", "cap3"]
+    assert rows[0]["seed"] == rows[1]["seed"]
+    assert len(generated) == 1
+    assert rows[0]["status"] == "ok"
+    assert rows[1]["status"] == "error"
+    assert rows[1]["error_type"] == "LinAlgError"
+    assert rows[1]["reached"] == ""
