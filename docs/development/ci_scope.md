@@ -34,6 +34,11 @@ run metadata, CSV results, JSON summary, and Markdown summary as a 30-day
 artifact. These outputs are reproducibility and workflow evidence, not
 publication-level operating-characteristic results.
 
+The formal v0.1 primary matrix is specified in
+[`docs/methodology/validation_matrix_v1.md`](../methodology/validation_matrix_v1.md)
+and is sourced from `simulations/configs/falsification_pilot.json`. It remains a
+separate, explicitly invoked research run rather than a pull-request gate.
+
 ## Ruff
 
 Ruff checks all repository Python areas that are part of the development

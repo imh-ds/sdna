@@ -367,3 +367,65 @@ implementation consequence rather than silently changing an earlier record.
 - **Status:** Implemented in
   `simulations/configs/validation_matrix.json` and
   `.github/workflows/validation-matrix.yml`.
+
+## ADR-013 — Freeze the v0.1 primary validation matrix before execution
+
+- **Date:** 2026-09-13
+- **Decision:** Treat `simulations/configs/falsification_pilot.json` as the
+  pre-specified v0.1 primary matrix: six scenarios, `N=[50, 100, 150]`,
+  `p=[5, 10, 20]`, ten replications per cell, calibration simulations `25`,
+  bootstrap draws `100`, `search_cap=2`, certification budget `1000`, and
+  fixed root seed `20260910`. Document its estimands, censoring rules, matched
+  populations, technical acceptance checks, and interpretation boundaries in
+  `docs/methodology/validation_matrix_v1.md`.
+- **Rationale:** The reduced Actions matrix verifies execution and artifact
+  provenance but is too small to serve as the primary methodological evidence.
+  Freezing the larger bounded pilot before its next execution prevents
+  post-hoc selection of cells, metrics, or reach handling while preserving the
+  practical runtime limits established by Task 19.
+- **Consequence:** The primary run remains bounded methodological evidence,
+  not publication-level validation. Reach-dependent censoring, null metrics,
+  and matched-cell populations must be reported explicitly. Any change to the
+  matrix or interpretation rules requires a new specification version and a
+  new decision-log entry.
+- **Status:** Specification committed; primary matrix execution remains the
+  next separate validation action.
+
+## ADR-014 — Validate primary runs under an explicit profile
+
+- **Date:** 2026-09-13
+- **Decision:** Add a `primary` profile to the simulation artifact validator.
+  The existing `validate_smoke` function remains the compatibility wrapper for
+  smoke runs, while the manually invoked primary-validation workflow validates
+  the full configured replication count and requires `metadata.smoke=False`.
+- **Rationale:** The smoke validator intentionally caps expected replications at
+  five and requires smoke metadata. Reusing it unchanged for the 10-replication
+  primary matrix could either reject a valid primary artifact or encourage an
+  unsafe smoke-capped acceptance check. An explicit profile makes the workload
+  and provenance contract visible at the command boundary.
+- **Consequence:** PR/reduced runs and primary runs share schema and invariant
+  checks but cannot be confused by their replication or metadata expectations.
+  The primary workflow remains manual-only and uploads its validated evidence
+  separately.
+- **Status:** Implemented in `tools/validate_smoke.py` and
+  `.github/workflows/primary-validation.yml`.
+
+## ADR-015 — Execute the pre-specified primary matrix without tuning
+
+- **Date:** 2026-09-13
+- **Decision:** Execute the frozen `falsification_pilot.json` matrix with the
+  `primary` validation profile before considering any estimator optimization or
+  matrix revision. The local run produced 540 rows, completed in approximately
+  55.3 seconds, and passed the profile-aware schema, provenance, and summary
+  invariants.
+- **Rationale:** The pre-specification is only useful if the declared workload
+  can be executed and audited under its full replication count. Running it
+  before tuning preserves a baseline against which future changes can be
+  compared.
+- **Consequence:** The run confirms executable bounded evidence, not favorable
+  operating characteristics or publication-level validity. Reach-dependent
+  censoring, undefined metrics, and scenario-specific limitations remain part
+  of the interpretation. The same primary run is available through the manual
+  GitHub Actions workflow after it is merged.
+- **Status:** Local primary execution completed; hosted workflow is available
+  for explicit dispatch.
