@@ -352,14 +352,14 @@ implementation consequence rather than silently changing an earlier record.
 - **Date:** 2026-09-13
 - **Decision:** Add a committed fixed-seed reduced validation configuration
   covering all six simulation scenarios across `N=[50, 100]`, `p=[5, 10]`, and
-  two replications per cell. Run it through a manually dispatchable and weekly
-  scheduled GitHub Actions workflow, and retain the configuration, run
-  provenance, results, and summaries as a 30-day artifact.
+  two replications per cell. Run it through a manually dispatchable GitHub
+  Actions workflow, and retain the configuration, run provenance, results, and
+  summaries as a 30-day artifact.
 - **Rationale:** A broader scenario matrix provides recurring evidence that the
-  complete simulation and summary workflow remains executable, while keeping
-  the pull-request gate small and responsive. A committed configuration and
-  fixed seed make changes in output attributable to code or environment rather
-  than an unrecorded workload choice.
+  complete simulation and summary workflow remains executable when explicitly
+  invoked, while keeping the pull-request gate small and responsive. A
+  committed configuration and fixed seed make changes in output attributable to
+  code or environment rather than an unrecorded workload choice.
 - **Consequence:** The workflow is a reproducibility and workflow check, not a
   publication-level validation run or a required PR status check. Larger or
   more inferentially complete matrices remain explicitly invoked research
