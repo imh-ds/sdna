@@ -53,6 +53,14 @@ workflow:
 This catches formatting, import, and common correctness issues throughout the
 code that contributors run or modify.
 
+The CI workflow installs its development tools through
+[`constraints-ci.txt`](../../constraints-ci.txt) so the quality gates do not
+silently change when a new tool release is published. The project’s optional
+`dev` dependencies remain minimum-version requirements for ordinary local
+development. Contributors who use pre-commit can install it separately with
+`python -m pip install pre-commit`, run `pre-commit install`, and use the
+repository Ruff hook before committing.
+
 ## mypy
 
 Strict mypy checks only `src/sdna`, the distributable library and its public

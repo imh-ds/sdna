@@ -526,3 +526,23 @@ implementation consequence rather than silently changing an earlier record.
   maintenance item, not a failed validation result.
 - **Status:** Hosted evidence accepted; redesign or scope change deferred to a
   separately pre-specified methodological task.
+
+## ADR-020 — Pin CI tooling and update Actions runtimes
+
+- **Date:** 2026-09-13
+- **Decision:** Pin the CI development-tool versions in
+  [`constraints-ci.txt`](../../constraints-ci.txt), provide an optional Ruff
+  pre-commit hook, and update all repository workflows to the current
+  Node.js-24-native releases of checkout, setup-python, and upload-artifact.
+- **Rationale:** The hosted workflows correctly caught lint defects, but those
+  defects reached CI because no local hook mirrored the repository-wide Ruff
+  gate. Floating CI tools also allow the quality gate to change without a
+  repository commit. GitHub reported a non-blocking warning that the prior
+  Actions versions targeted Node.js 20 and were being forced onto Node.js 24.
+- **Consequence:** CI quality gates are reproducible until the constraints are
+  intentionally updated, contributors have an opt-in local Ruff check, and
+  the Actions workflows no longer rely on the deprecated Node.js 20 runtime.
+  This is CI maintenance only; it does not change the estimator, simulation
+  matrix, or methodological claims.
+- **Status:** Implemented in the CI constraints, pre-commit configuration, and
+  workflow files.
