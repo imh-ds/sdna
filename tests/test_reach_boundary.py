@@ -18,7 +18,6 @@ from tools.reach_boundary_manifest import (
 )
 from tools.summarize_reach_boundary import summarize_rows
 
-
 MANIFEST_PATH = Path("simulations/configs/reach_boundary_v1.json")
 
 
