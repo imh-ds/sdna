@@ -270,7 +270,7 @@ Use the Phase A `U_to_R` rule on the instrumented rows. For each candidate cap r
 
 - [ ] **Step 4: Implement reference reproduction validation**
 
-Validate the instrumented artifact’s 1,620 rows, 540-row arms, key uniqueness, deterministic seeds, paired digests, source manifest checksum, diagnostic schema, artifact checksums, and summary. Compare every original Task 24 field row-by-row against the downloaded reference artifact: statuses and categorical values must match exactly; finite numeric endpoint values must match within `1e-12`; nullability must match exactly. Reject any mismatch rather than repairing it.
+Validate the instrumented artifact’s 1,620 rows, 540-row arms, key uniqueness, deterministic seeds, paired digests, source manifest checksum, diagnostic schema, artifact checksums, and summary. Compare every original Task 24 field except `elapsed_seconds` row-by-row against the downloaded reference artifact: statuses and categorical values must match exactly; finite numeric endpoint values must match within `1e-12`; nullability must match exactly. Validate runtime fields separately as nonnegative reported values. Reject any mismatch rather than repairing it.
 
 - [ ] **Step 5: Implement JSON and Markdown output**
 
