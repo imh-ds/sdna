@@ -182,8 +182,6 @@ def _error_row(
             ),
         }
     )
-    if stage == "data":
-        row["dataset_digest"] = None
     return row
 
 
@@ -283,28 +281,17 @@ def _workflow_row(
 ) -> dict[str, Any]:
     row_started = perf_counter()
     seeds = derive_workflow_seeds(int(candidate["data_seed"]))
-    try:
-        workflow = run_full_workflow(
-            dataset,
-            target=FragilityTarget("relative", job["target"]),
-            search_cap=job["search_cap"],
-            calibration_simulations=int(study_manifest["calibration_simulations"]),
-            bootstrap_samples=int(study_manifest["bootstrap_samples"]),
-            bootstrap_confidence=float(study_manifest["bootstrap_confidence"]),
-            certification_combination_budget=budget,
-            seeds=seeds,
-            calibration_require_reached=bool(
-                study_manifest["calibration_require_reached"]
-            ),
-        )
-    except _ROW_ERRORS as error:
-        return _error_row(
-            candidate,
-            budget,
-            error,
-            stage="workflow",
-            elapsed_seconds=perf_counter() - row_started,
-        )
+    workflow = run_full_workflow(
+        dataset,
+        target=FragilityTarget("relative", job["target"]),
+        search_cap=job["search_cap"],
+        calibration_simulations=int(study_manifest["calibration_simulations"]),
+        bootstrap_samples=int(study_manifest["bootstrap_samples"]),
+        bootstrap_confidence=float(study_manifest["bootstrap_confidence"]),
+        certification_combination_budget=budget,
+        seeds=seeds,
+        calibration_require_reached=bool(study_manifest["calibration_require_reached"]),
+    )
 
     row = dict(candidate)
     row.update(workflow)

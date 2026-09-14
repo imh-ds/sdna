@@ -375,8 +375,15 @@ def test_runner_records_expected_dataset_generation_error_as_a_row(
     )
 
     rows = _read_csv(output_dir / "results.csv")
+    selection = json.loads(selection_path.read_text(encoding="utf-8"))
+    expected_digests = [
+        entry["candidate"]["dataset_digest"]
+        for cap in ("cap3", "cap4")
+        for entry in selection["populations"][cap]
+    ]
     assert status["arm_status"] == "complete"
     assert len(rows) == 4
+    assert [row["dataset_digest"] for row in rows] == expected_digests
     assert {row["error_stage"] for row in rows} == {"data"}
     assert {row["workflow_status"] for row in rows} == {"error"}
     assert {row["certification_failure_reason"] for row in rows} == {
@@ -385,8 +392,11 @@ def test_runner_records_expected_dataset_generation_error_as_a_row(
     assert {row["certification_budget_exhausted"] for row in rows} == {"False"}
 
 
+@pytest.mark.parametrize("exception_type", [TypeError, ValueError, RuntimeError])
 def test_runner_marks_unexpected_exception_failed_without_synthetic_row(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    exception_type: type[Exception],
 ) -> None:
     selection_path, _ = _write_selection_fixture(tmp_path, monkeypatch)
     _install_successful_workflow(monkeypatch)
@@ -396,7 +406,7 @@ def test_runner_marks_unexpected_exception_failed_without_synthetic_row(
         nonlocal calls
         calls += 1
         if calls == 2:
-            raise TypeError("unexpected runner failure")
+            raise exception_type("unexpected runner failure")
         return _workflow_fields(int(kwargs["certification_combination_budget"]))
 
     monkeypatch.setattr(runner, "run_full_workflow", unexpected_workflow)
@@ -412,7 +422,7 @@ def test_runner_marks_unexpected_exception_failed_without_synthetic_row(
 
     rows = _read_csv(output_dir / "results.csv")
     assert status["arm_status"] == "failed"
-    assert status["error_type"] == "TypeError"
+    assert status["error_type"] == exception_type.__name__
     assert status["error_message"] == "unexpected runner failure"
     assert len(rows) == 1
     assert rows[0]["workflow_status"] == "ok"
