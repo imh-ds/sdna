@@ -96,6 +96,8 @@ The reason values are fixed before execution:
 
 - `not_applicable_unreached` when the candidate search does not reach the
   target;
+- `not_applicable_prior_error` when an earlier workflow stage prevents
+  certification from being attempted;
 - `certified` when exact certification succeeds;
 - `combination_budget_exhausted` when certification stops because the next
   complete subset size would exceed the declared budget;
