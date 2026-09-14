@@ -103,6 +103,27 @@ def _summary_provenance(metadata: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _summaries_match(expected: Any, actual: Any) -> bool:
+    if isinstance(expected, Mapping) and isinstance(actual, Mapping):
+        return set(expected) == set(actual) and all(
+            _summaries_match(expected[key], actual[key]) for key in expected
+        )
+    if isinstance(expected, Sequence) and not isinstance(expected, (str, bytes)):
+        return (
+            isinstance(actual, Sequence)
+            and not isinstance(actual, (str, bytes))
+            and len(expected) == len(actual)
+            and all(_summaries_match(left, right) for left, right in zip(expected, actual))
+        )
+    if isinstance(expected, (int, float)) and not isinstance(expected, bool):
+        return (
+            isinstance(actual, (int, float))
+            and not isinstance(actual, bool)
+            and math.isclose(float(expected), float(actual), rel_tol=1e-12, abs_tol=1e-12)
+        )
+    return expected == actual
+
+
 def _pairing_key(row: Mapping[str, Any]) -> tuple[Any, ...] | None:
     values = [_optional_float(row, field) for field in ("N", "p", "parameter_id", "replication")]
     scenario = row.get("scenario")
@@ -676,7 +697,7 @@ def validate_cap_expansion(
     summary = json.loads(Path(summary_json).read_text(encoding="utf-8"))
     expected_summary = summarize_cap_expansion_rows(rows, manifest)
     expected_summary["provenance"] = _summary_provenance(metadata)
-    if summary != expected_summary:
+    if not _summaries_match(expected_summary, summary):
         raise ValueError("summary does not match results and metadata")
 
 
