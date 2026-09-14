@@ -15,9 +15,7 @@ import numpy as np
 
 from sdna import __version__
 from sdna.calibration import calibrate_fragility
-from sdna.estimation import fit_network
-from sdna.fragility import FragilityTarget, certify_fragility, greedy_fragility
-from sdna.influence import exact_loo_influence
+from sdna.fragility import FragilityTarget
 from simulations.comparators.bootstrap import shrinkage_bootstrap
 from simulations.comparators.wald import wald_partial_correlation
 from simulations.dgp import (
@@ -29,7 +27,7 @@ from simulations.dgp import (
     mixture_subgroup,
     single_influential_case,
 )
-from simulations.metrics import influence_metrics
+from simulations.full_workflow import derive_workflow_seeds, run_full_workflow
 
 SCENARIO_NAMES = (
     "clean_planted_edge",
@@ -213,56 +211,20 @@ def _run(
         if scenario == "coalition_contamination":
             scenario_config["contamination_count"] = parameter
         simulated = generate_scenario(scenario, n, p, rng, scenario_config)
-        fitted = fit_network(simulated.X)
-        edge = simulated.focal_edge
-        observed_rho = float(fitted.partial_correlation[edge])
-        greedy = greedy_fragility(
-            simulated.X,
-            edge=edge,
+        workflow = run_full_workflow(
+            simulated,
             target=target,
-            shrinkage=fitted.shrinkage,
             search_cap=config.get("search_cap"),
+            calibration_simulations=calibration_simulations,
+            bootstrap_samples=bootstrap_samples,
+            bootstrap_confidence=bootstrap_confidence,
+            certification_combination_budget=int(config["certification_combination_budget"]),
+            seeds=derive_workflow_seeds(row_seed),
+            calibration_require_reached=False,
+            calibration_fn=calibrate_fragility,
+            wald_fn=wald_partial_correlation,
+            bootstrap_fn=shrinkage_bootstrap,
         )
-        certified = (
-            certify_fragility(
-                simulated.X,
-                greedy,
-                shrinkage=fitted.shrinkage,
-                max_combinations=int(config["certification_combination_budget"]),
-            )
-            if greedy.reached
-            else None
-        )
-        calibration_seed, bootstrap_seed = np.random.SeedSequence(row_seed).spawn(2)
-        calibration = calibrate_fragility(
-            simulated.X,
-            edge=edge,
-            target=target,
-            n_sim=calibration_simulations,
-            rng=np.random.default_rng(calibration_seed),
-            shrinkage=fitted.shrinkage,
-            search_cap=config.get("search_cap"),
-            require_reached=False,
-        )
-        wald = wald_partial_correlation(
-            simulated.X, edge=edge, confidence=bootstrap_confidence
-        )
-        bootstrap = shrinkage_bootstrap(
-            simulated.X,
-            edge=edge,
-            n_boot=bootstrap_samples,
-            rng=np.random.default_rng(bootstrap_seed),
-            shrinkage=fitted.shrinkage,
-            confidence=bootstrap_confidence,
-        )
-        influence_summary: dict[str, float] | None = None
-        if simulated.contaminated_cases:
-            influence = exact_loo_influence(simulated.X, fitted).changes[
-                :, edge[0], edge[1]
-            ]
-            influence_summary = influence_metrics(
-                influence, simulated.contaminated_cases, len(simulated.contaminated_cases)
-            )
         row = {
             "scenario": scenario,
             "parameter_id": parameter_id,
@@ -271,40 +233,24 @@ def _run(
             "N": n,
             "p": p,
             "fragility_target": target_value,
-            "true_rho": float(simulated.partial_correlation[edge]),
-            "observed_rho": observed_rho,
-            "lambda": fitted.shrinkage,
-            "contamination_count": len(simulated.contaminated_cases),
-            "contamination_status": int(bool(simulated.contaminated_cases)),
-            "greedy_fragility_50": greedy.greedy_count,
-            "exact_fragility_50": None if certified is None else certified.exact_minimum,
-            "certified": False if certified is None else certified.certified,
-            "reached": greedy.reached,
-            "reference_tail_probability": calibration.reference_tail_probability,
-            "reference_reached_fraction": sum(calibration.reference_reached)
-            / len(calibration.reference_reached),
-            "wald_z": wald.z,
-            "bootstrap_ci_excludes_zero": (
-                bootstrap.confidence_interval[0] > 0.0
-                or bootstrap.confidence_interval[1] < 0.0
-            ),
-            "bootstrap_rejected_resamples": bootstrap.rejected_resamples,
-            "influence_top_k_precision": (
-                None if influence_summary is None else influence_summary["top_k_precision"]
-            ),
-            "influence_top_k_recall": (
-                None if influence_summary is None else influence_summary["top_k_recall"]
-            ),
-            "first_planted_reciprocal_rank": (
-                None
-                if influence_summary is None
-                else influence_summary["first_planted_reciprocal_rank"]
-            ),
-            "planted_absolute_influence_share": (
-                None
-                if influence_summary is None
-                else influence_summary["planted_absolute_influence_share"]
-            ),
+            "true_rho": workflow["true_rho"],
+            "observed_rho": workflow["observed_rho"],
+            "lambda": workflow["lambda"],
+            "contamination_count": workflow["contamination_count"],
+            "contamination_status": workflow["contamination_status"],
+            "greedy_fragility_50": workflow["greedy_fragility_50"],
+            "exact_fragility_50": workflow["exact_fragility_50"],
+            "certified": bool(workflow["certified"]),
+            "reached": workflow["reached"],
+            "reference_tail_probability": workflow["reference_tail_probability"],
+            "reference_reached_fraction": workflow["reference_reached_fraction"],
+            "wald_z": workflow["wald_z"],
+            "bootstrap_ci_excludes_zero": workflow["bootstrap_ci_excludes_zero"],
+            "bootstrap_rejected_resamples": workflow["bootstrap_rejected_resamples"],
+            "influence_top_k_precision": workflow["influence_top_k_precision"],
+            "influence_top_k_recall": workflow["influence_top_k_recall"],
+            "first_planted_reciprocal_rank": workflow["first_planted_reciprocal_rank"],
+            "planted_absolute_influence_share": workflow["planted_absolute_influence_share"],
             "elapsed_seconds": perf_counter() - row_started,
         }
         rows.append(row)

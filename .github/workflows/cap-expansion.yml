@@ -1,0 +1,89 @@
+name: SDNA paired cap-expansion validation
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: cap-expansion-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  cap-expansion:
+    name: Full 1,620-row paired cap-expansion study
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]" -c constraints-ci.txt
+
+      - name: Prepare artifact directory and provenance
+        env:
+          CAP_EXPANSION_DIR: ${{ runner.temp }}/sdna-cap-expansion
+        run: |
+          mkdir -p "$CAP_EXPANSION_DIR"
+          cp simulations/configs/cap_expansion_v1.json "$CAP_EXPANSION_DIR/cap_expansion_v1.json"
+          {
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "event=$GITHUB_EVENT_NAME"
+            echo "ref=$GITHUB_REF"
+            echo "sha=$GITHUB_SHA"
+          } > "$CAP_EXPANSION_DIR/github-run.txt"
+          {
+            echo "python -m tools.run_cap_expansion simulations/configs/cap_expansion_v1.json $CAP_EXPANSION_DIR/results.csv"
+            echo "python -m tools.summarize_cap_expansion $CAP_EXPANSION_DIR/results.csv $CAP_EXPANSION_DIR/results.metadata.json $CAP_EXPANSION_DIR/summary.json $CAP_EXPANSION_DIR/summary.md simulations/configs/cap_expansion_v1.json --validate"
+          } > "$CAP_EXPANSION_DIR/commands.txt"
+
+      - name: Run the complete paired cap-expansion study
+        env:
+          CAP_EXPANSION_DIR: ${{ runner.temp }}/sdna-cap-expansion
+        run: >-
+          python -m tools.run_cap_expansion
+          simulations/configs/cap_expansion_v1.json
+          "$CAP_EXPANSION_DIR/results.csv"
+
+      - name: Summarize and validate the artifact
+        env:
+          CAP_EXPANSION_DIR: ${{ runner.temp }}/sdna-cap-expansion
+        run: >-
+          python -m tools.summarize_cap_expansion
+          "$CAP_EXPANSION_DIR/results.csv"
+          "$CAP_EXPANSION_DIR/results.metadata.json"
+          "$CAP_EXPANSION_DIR/summary.json"
+          "$CAP_EXPANSION_DIR/summary.md"
+          simulations/configs/cap_expansion_v1.json
+          --validate
+
+      - name: Report runtime budget status
+        if: always()
+        env:
+          CAP_EXPANSION_DIR: ${{ runner.temp }}/sdna-cap-expansion
+        run: |
+          if test -f "$CAP_EXPANSION_DIR/results.metadata.json"; then
+            if python -c "import json, os; metadata=json.load(open(os.path.join(os.environ['CAP_EXPANSION_DIR'], 'results.metadata.json'), encoding='utf-8')); exceeded=bool(metadata['timing']['budget_exceeded']); print('budget_exceeded=' + str(exceeded).lower()); print('elapsed_seconds=' + str(metadata['timing']['elapsed_seconds'])); raise SystemExit(0 if exceeded else 1)"; then
+              echo "::warning::Task 24 cap-expansion study exceeded its 15-minute operational budget; artifact retained for review."
+            fi
+          else
+            echo "No metadata file was produced; artifact upload will preserve available diagnostics."
+          fi
+
+      - name: Upload cap-expansion artifacts
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: sdna-cap-expansion-${{ github.run_id }}
+          path: ${{ runner.temp }}/sdna-cap-expansion
+          if-no-files-found: error
+          retention-days: 90

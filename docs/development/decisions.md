@@ -564,3 +564,131 @@ implementation consequence rather than silently changing an earlier record.
   dependency lockfile, and that limitation is documented rather than hidden.
 - **Status:** Implemented in `.pre-commit-config.yaml` and the CI scope
   documentation.
+
+## ADR-022 — Pre-specify a paired full-workflow search-cap expansion study
+
+- **Date:** 2026-09-14
+- **Decision:** Specify a three-arm, full-workflow comparison of
+  `search_cap=2`, `search_cap=3`, and `search_cap=4` using the frozen v0.1
+  matrix, identical generated data and row seeds across arms, and 25
+  calibration simulations, 100 bootstrap resamples, and certification budget
+  1000 per row. The study contains 540 rows per arm (1,620 total) and runs
+  only through a manual workflow. Cap 2 remains the production baseline, and
+  no arm is promoted automatically.
+- **Rationale:** The hosted reach-boundary diagnostic found paired availability
+  gains for caps 3 and 4 but intentionally made no full-workflow claims. A
+  complete paired study is needed to determine whether those gains persist
+  through calibration, certification, bootstrap, comparator behavior, and
+  practical runtime while preserving the frozen v0.1 estimand. The design
+  therefore fixes the data and randomization contract, separates pooled from
+  jointly-valid pair metrics, preserves explicit censoring/failure states, and
+  sets a 15-minute hosted operational ceiling without treating it as a
+  scientific threshold.
+- **Consequences:** The next implementation must add a validated paired
+  artifact and evidence report under the approved specification. A result can
+  support a later cap decision but cannot alter v0.1, add undeclared arms, or
+  introduce optimization. Any production-cap change requires a subsequent
+  decision entry.
+- **Status:** Design specified and committed; user approval received; detailed
+  implementation plan is committed separately; implementation and hosted
+  execution remain pending.
+- **Decision introduced in commit:** `bb7a851`
+- **Design/specification:**
+  [`docs/superpowers/specs/2026-09-14-task24-cap-expansion-design.md`](../superpowers/specs/2026-09-14-task24-cap-expansion-design.md)
+- **Implementation plan:**
+  [`docs/superpowers/plans/2026-09-14-task24-cap-expansion.md`](../superpowers/plans/2026-09-14-task24-cap-expansion.md)
+- **Canonical methodology page:**
+  [`docs/methodology/cap_expansion_study_v1.md`](../methodology/cap_expansion_study_v1.md)
+- **Independent-review files:**
+  `simulations/configs/cap_expansion_v1.json`,
+  `tools/cap_expansion_manifest.py`, `simulations/full_workflow.py`,
+  `tools/run_cap_expansion.py`, `tools/summarize_cap_expansion.py`,
+  `.github/workflows/cap-expansion.yml`, and
+  `docs/methodology/cap_expansion_study_v1.md`.
+- **Review rationale:** The hosted reach-only diagnostic found paired cap
+  sensitivity but did not establish calibration, certification, bootstrap, or
+  practical-runtime behavior. The planned full-workflow comparison preserves
+  the frozen v0.1 estimand while testing whether the availability gains persist
+  under the complete workflow. After implementation and hosted execution, a
+  follow-up decision record must add the exact implementation commit, Actions
+  run ID, artifact checksum, findings, and cap decision.
+
+## ADR-023 — Complete the paired cap-expansion implementation and retain cap 2 pending hosted execution
+
+- **Date:** 2026-09-14
+- **Decision:** Complete the Task 24 paired full-workflow implementation at
+  commit `de02a257ff2acd958b354397711ba6e4fd6270e9`. Retain
+  `search_cap=2` as the v0.1 production baseline. Treat cap 3 and cap 4 as
+  diagnostic sensitivity arms; do not promote either arm automatically or
+  change the v0.1 estimand from this run.
+- **Why this happened:** The prior reach-boundary diagnostic showed that
+  larger search caps can recover otherwise unreached rows, but it did not test
+  downstream calibration, certification, comparator, bootstrap, or runtime
+  behavior. Task 24 therefore froze a paired, same-data three-arm study before
+  any optimization or production-cap change. A final seed-contract correction
+  was included in the implementation commit because the loader previously
+  accepted any nonnegative seed even though the study seed was frozen.
+- **Local evidence provenance:** The complete 1,620-row study was run from
+  commit `de02a257ff2acd958b354397711ba6e4fd6270e9` with Python 3.12.1 and
+  NumPy 2.5.2. The results CSV SHA-256 was
+  `64a4362440f52e34a5da2275c30a1f017d5e8c4b80cc52aa62ae867bb5e83810` and
+  the frozen manifest checksum was
+  `415576f1fec5ccd2a47e0ad411d29e4d48c6e8e370609ae495ccc877fe74e974`.
+  The run produced 540 rows per arm in 564.23 seconds, below the 900-second
+  operational budget. All 1,620 Wald and bootstrap stages completed without
+  error; the 656 unreached rows are represented as partial workflow states,
+  not as numerical failures.
+- **Findings:** The cap-3 comparison had 284 reached-to-reached pairs, 44
+  unreached-to-reached pairs, and 212 unreached-to-unreached pairs, with no
+  reached-to-unreached pairs. Its paired reach-rate difference was 0.0815
+  (95% normal interval 0.0584 to 0.1046; denominator 540). Cap 4 had 284
+  reached-to-reached pairs, 68 unreached-to-reached pairs, and 188
+  unreached-to-unreached pairs, again with no reached-to-unreached pairs. Its
+  paired reach-rate difference was 0.1259 (95% normal interval 0.0979 to
+  0.1539; denominator 540). Baseline cap 2 certified 284 rows; cap 3 and cap
+  4 also certified 284 rows, while their newly reached rows were
+  `not_certified` (44 and 68 respectively). The cap expansion therefore
+  improved availability in this artifact without demonstrating additional
+  certified evidence sufficient to justify a production change.
+- **Hosted status:** The manual workflow is committed in
+  `.github/workflows/cap-expansion.yml` and the branch is pushed as
+  `codex/task-24-cap-expansion`. No GitHub Actions run ID or hosted artifact
+  checksum exists yet: dispatch was attempted against this branch and GitHub
+  returned HTTP 404 because the workflow is not present on the repository's
+  default branch. After a reviewed merge makes the workflow available on the
+  default branch, dispatch the workflow and append its exact run ID, commit,
+  artifact name, checksum, and any local/hosted reproducibility comparison to
+  this ADR.
+- **Files for independent review:**
+  `docs/superpowers/specs/2026-09-14-task24-cap-expansion-design.md`,
+  `docs/superpowers/plans/2026-09-14-task24-cap-expansion.md`,
+  `simulations/configs/cap_expansion_v1.json`,
+  `tools/cap_expansion_manifest.py`, `simulations/full_workflow.py`,
+  `tools/run_cap_expansion.py`, `tools/summarize_cap_expansion.py`,
+  `tests/test_cap_expansion_manifest.py`,
+  `tests/test_full_workflow.py`, `tests/test_cap_expansion_runner.py`,
+  `tests/test_cap_expansion_summary.py`,
+  `.github/workflows/cap-expansion.yml`, and
+  `docs/methodology/cap_expansion_study_v1.md`.
+- **Consequences:** The cap-expansion artifact is technically validated and
+  supports a clear availability finding, but the methodology page remains
+  pre-specified rather than upgraded to accepted hosted evidence. The next
+  repository-level action is a reviewed PR merge followed by manual hosted
+  execution; only a later, separately approved validation task may change the
+  production cap or introduce optimization.
+- **Review-correction provenance:** The first PR #13 matrix run,
+  `34868854989`, failed only its Python 3.11/3.12/3.13 Ruff lint jobs on
+  commit `875f03c`; the fixed-seed smoke test passed. The root cause was eight
+  import-order/unused-import violations in
+  `simulations/full_workflow.py`, `simulations/run_simulation.py`,
+  `tools/run_cap_expansion.py`, and the three new cap-expansion test modules.
+  The independent review also identified semantic-status, summary-integrity,
+  deterministic-seed, checksum, right-censoring-label, runtime-reporting,
+  and influence-error-state gaps. These were corrected in commit
+  `c0aef22325fc500124898ddd7349a688df54ab9d`, with regression coverage in
+  `tests/test_cap_expansion_summary.py` and
+  `tests/test_full_workflow.py`. The reviewer-confirmed limitation that the
+  CSV cannot independently prove digest content without retaining generated
+  matrices is explicit: validation checks lowercase SHA-256 format and paired
+  equality, while `tools/run_cap_expansion.py` computes the digest from the
+  generated dataset.
