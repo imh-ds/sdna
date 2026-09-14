@@ -1,12 +1,16 @@
 """Tests for the Task 25 Phase A artifact audit."""
 
+import importlib
 from collections.abc import Iterable
+from pathlib import Path
 
 import pytest
 
+audit_module = importlib.import_module("tools.audit_certification_usability")
 from tools.audit_certification_usability import (
     UNAVAILABLE_FIELDS,
     _render_markdown,
+    audit_certification_usability,
     identify_newly_reached_pairs,
 )
 
@@ -147,3 +151,54 @@ def test_phase_a_markdown_reports_denominators_and_unavailable_fields() -> None:
     assert "| 4 | 3 | 1 | 0.3333333333333333 |" in markdown
     for field in UNAVAILABLE_FIELDS:
         assert f"- `{field}`" in markdown
+
+
+def test_phase_a_passes_source_manifest_path_to_validator(tmp_path: Path, monkeypatch) -> None:
+    rows = paired_rows(
+        [
+            audit_row("baseline_cap2", 0, "unreached"),
+            audit_row("cap3", 0, "reached"),
+            audit_row("cap4", 0, "unreached"),
+            audit_row("baseline_cap2", 1, "unreached"),
+            audit_row("cap3", 1, "unreached"),
+            audit_row("cap4", 1, "reached"),
+        ]
+    )
+    source_manifest = tmp_path / "cap-expansion.json"
+    audit_manifest = tmp_path / "certification-usability.json"
+    source_manifest.write_text("{}", encoding="utf-8")
+    audit_manifest.write_text("{}", encoding="utf-8")
+    audit_config = {
+        "study": "certification_usability_audit",
+        "candidate_caps": [3, 4],
+        "primary_population": "baseline_unreached_candidate_reached",
+        "primary_endpoint": "candidate_certification_yield",
+        "source_run_id": "run",
+        "source_commit": "commit",
+        "source_artifact": "artifact",
+        "source_manifest_checksum": "manifest-digest",
+        "source_results_sha256": "results-digest",
+    }
+    seen: list[object] = []
+
+    def fake_validate(*args: object) -> None:
+        seen.append(args[3])
+
+    monkeypatch.setattr(audit_module, "load_cap_expansion_manifest", lambda _: {"loaded": True})
+    monkeypatch.setattr(audit_module, "load_certification_usability_manifest", lambda _: audit_config)
+    monkeypatch.setattr(audit_module, "validate_cap_expansion", fake_validate)
+    monkeypatch.setattr(audit_module, "_read_rows", lambda _: rows)
+    monkeypatch.setattr(audit_module, "_sha256_file", lambda _: "results-digest")
+    monkeypatch.setattr(audit_module, "_git_commit", lambda: "audit-commit")
+
+    audit_certification_usability(
+        tmp_path / "results.csv",
+        tmp_path / "results.metadata.json",
+        tmp_path / "summary.json",
+        source_manifest,
+        audit_manifest,
+        tmp_path / "audit.json",
+        tmp_path / "audit.md",
+    )
+
+    assert seen == [source_manifest]

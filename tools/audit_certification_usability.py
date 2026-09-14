@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from tools.cap_expansion_manifest import CAP_ARM_NAMES, PAIRING_FIELDS, load_cap_expansion_manifest
+from tools.cap_expansion_manifest import CAP_ARM_NAMES, PAIRING_FIELDS
 from tools.certification_usability_manifest import load_certification_usability_manifest
 from tools.summarize_cap_expansion import validate_cap_expansion
 
@@ -182,9 +182,8 @@ def audit_certification_usability(
     output_markdown: str | Path,
 ) -> None:
     """Validate the Task 24 artifact and write a Phase A audit report."""
-    manifest = load_cap_expansion_manifest(source_manifest)
     audit_config = load_certification_usability_manifest(audit_manifest)
-    validate_cap_expansion(results_csv, metadata_json, summary_json, manifest)
+    validate_cap_expansion(results_csv, metadata_json, summary_json, source_manifest)
     rows = _read_rows(results_csv)
     pairs = identify_newly_reached_pairs(rows)
 
