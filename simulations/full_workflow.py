@@ -78,6 +78,10 @@ def _initial_result(dataset: SimulatedDataset) -> dict[str, Any]:
         "exact_fragility_50": None,
         "certified": None,
         "reached": None,
+        "certification_combinations_checked": None,
+        "certification_combination_budget": None,
+        "certification_budget_exhausted": False,
+        "certification_failure_reason": None,
         "reference_tail_probability": None,
         "reference_reached_fraction": None,
         "wald_z": None,
@@ -136,6 +140,7 @@ def run_full_workflow(
 ) -> dict[str, Any]:
     """Run every declared estimator stage and preserve stage outcomes."""
     result = _initial_result(dataset)
+    result["certification_combination_budget"] = certification_combination_budget
     edge = dataset.focal_edge
 
     try:
@@ -146,6 +151,7 @@ def run_full_workflow(
         for stage in ("fragility", "certification", "calibration", "wald", "bootstrap"):
             result[f"{stage}_status"] = "error"
         result.update(_error_fields("fit", error))
+        result["certification_failure_reason"] = "not_applicable_prior_error"
         _finish_status(result)
         return result
 
@@ -162,6 +168,7 @@ def run_full_workflow(
         result["fragility_status"] = "reached" if greedy.reached else "unreached"
     except _STAGE_ERRORS as error:
         _set_error(result, "fragility", error)
+        result["certification_failure_reason"] = "not_applicable_prior_error"
         greedy = None
 
     if greedy is not None and greedy.reached:
@@ -174,13 +181,22 @@ def run_full_workflow(
             )
             result["exact_fragility_50"] = certified.exact_minimum
             result["certified"] = certified.certified
+            result["certification_combinations_checked"] = certified.combinations_checked
             result["certification_status"] = (
                 "certified" if certified.certified else "not_certified"
             )
+            if certified.certified:
+                result["certification_failure_reason"] = "certified"
+            else:
+                result["certification_budget_exhausted"] = True
+                result["certification_failure_reason"] = "combination_budget_exhausted"
         except _STAGE_ERRORS as error:
             _set_error(result, "certification", error)
+            result["certification_failure_reason"] = "error"
     elif greedy is not None:
         result["certification_status"] = "skipped_unreached"
+        result["certification_combinations_checked"] = 0
+        result["certification_failure_reason"] = "not_applicable_unreached"
 
     try:
         calibration = calibration_fn(
