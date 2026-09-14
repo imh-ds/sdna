@@ -31,7 +31,6 @@ from tools.cap_expansion_manifest import (
     manifest_checksum,
 )
 
-
 CAP_EXPANSION_FIELDNAMES = [
     "arm",
     "scenario",

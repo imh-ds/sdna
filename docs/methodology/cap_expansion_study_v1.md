@@ -1,7 +1,10 @@
 # Paired full-workflow search-cap expansion study v1
 
-**Status:** Pre-specified; implementation is in progress and no cap-expansion
-simulation result is accepted by this document yet.
+**Status:** Pre-specified and implemented on the Task 24 branch. Local
+validation is recorded provisionally in ADR-023; hosted validation remains
+pending the reviewed merge because the manual workflow must exist on the
+default branch before it can be dispatched. No cap-expansion result is
+accepted as hosted evidence by this document yet.
 
 This page is the user-facing description of Task 24. The approved design
 specification is [`2026-09-14-task24-cap-expansion-design.md`](../superpowers/specs/2026-09-14-task24-cap-expansion-design.md),

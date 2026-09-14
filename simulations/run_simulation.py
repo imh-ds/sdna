@@ -14,11 +14,10 @@ from typing import Any
 import numpy as np
 
 from sdna import __version__
-from sdna.fragility import FragilityTarget
 from sdna.calibration import calibrate_fragility
+from sdna.fragility import FragilityTarget
 from simulations.comparators.bootstrap import shrinkage_bootstrap
 from simulations.comparators.wald import wald_partial_correlation
-from simulations.full_workflow import derive_workflow_seeds, run_full_workflow
 from simulations.dgp import (
     SimulatedDataset,
     clean_planted_edge,
@@ -28,6 +27,7 @@ from simulations.dgp import (
     mixture_subgroup,
     single_influential_case,
 )
+from simulations.full_workflow import derive_workflow_seeds, run_full_workflow
 
 SCENARIO_NAMES = (
     "clean_planted_edge",

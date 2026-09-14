@@ -2,18 +2,24 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
+import hashlib
 import json
 import math
+import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from simulations.full_workflow import derive_workflow_seeds
+from simulations.run_simulation import replication_seeds
 from simulations.summarize import summarize_rows
 from tools.cap_expansion_manifest import (
     CAP_ARM_NAMES,
     PAIRING_FIELDS,
+    cap_expansion_pairing_keys,
     expand_cap_expansion_jobs,
     load_cap_expansion_manifest,
     manifest_checksum,
@@ -21,6 +27,7 @@ from tools.cap_expansion_manifest import (
 from tools.run_cap_expansion import CAP_EXPANSION_FIELDNAMES
 
 BASELINE_ARM = "baseline_cap2"
+_DIGEST_PATTERN = re.compile(r"[0-9a-f]{64}")
 STAGE_FIELDS = (
     "fragility_status",
     "certification_status",
@@ -76,6 +83,24 @@ def _optional_bool(row: Mapping[str, Any], field: str) -> bool | None:
     if isinstance(value, (int, float)) and value in {0, 1}:
         return bool(value)
     return None
+
+
+def _sha256_file(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _summary_provenance(metadata: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "git_commit": metadata["git_commit"],
+        "python_version": metadata["python_version"],
+        "numpy_version": metadata["numpy_version"],
+        "package_version": metadata["package_version"],
+        "timing": metadata["timing"],
+    }
 
 
 def _pairing_key(row: Mapping[str, Any]) -> tuple[Any, ...] | None:
@@ -179,12 +204,34 @@ def _comparison_summary(
     jointly_valid_rows = [row for pair in jointly_valid_pairs for row in pair]
     baseline_error_rows = sum(_is_error(row) for row in baseline_rows)
     candidate_error_rows = sum(_is_error(row) for row in candidate_rows)
-    baseline_censored_rows = sum(
+    baseline_unreached_rows = sum(
         not _is_error(row) and _optional_bool(row, "reached") is False for row in baseline_rows
     )
-    candidate_censored_rows = sum(
+    candidate_unreached_rows = sum(
         not _is_error(row) and _optional_bool(row, "reached") is False for row in candidate_rows
     )
+    baseline_right_censored_rows = sum(
+        not _is_error(row) and row.get("calibration_status") == "right_censored"
+        for row in baseline_rows
+    )
+    candidate_right_censored_rows = sum(
+        not _is_error(row) and row.get("calibration_status") == "right_censored"
+        for row in candidate_rows
+    )
+    stratified: dict[str, Any] = {}
+    by_cell: dict[tuple[str, int, int], list[int]] = defaultdict(list)
+    for baseline, candidate in comparable_pairs:
+        key = (
+            str(baseline["scenario"]),
+            int(float(baseline["N"])),
+            int(float(baseline["p"])),
+        )
+        by_cell[key].append(
+            int(_optional_bool(candidate, "reached"))
+            - int(_optional_bool(baseline, "reached"))
+        )
+    for (scenario, n, p), cell_differences in sorted(by_cell.items()):
+        stratified[f"{scenario}|N={n}|p={p}"] = _reach_rate_interval(cell_differences)
     return {
         "baseline_arm": BASELINE_ARM,
         "candidate_arm": candidate_arm,
@@ -192,10 +239,13 @@ def _comparison_summary(
         "comparable_pair_count": len(comparable_pairs),
         "baseline_error_rows": baseline_error_rows,
         "candidate_error_rows": candidate_error_rows,
-        "baseline_censored_rows": baseline_censored_rows,
-        "candidate_censored_rows": candidate_censored_rows,
+        "baseline_unreached_rows": baseline_unreached_rows,
+        "candidate_unreached_rows": candidate_unreached_rows,
+        "baseline_right_censored_rows": baseline_right_censored_rows,
+        "candidate_right_censored_rows": candidate_right_censored_rows,
         "transition_counts": transition_counts,
         "reach_rate_difference": _reach_rate_interval(differences),
+        "stratified_reach_rate_differences": stratified,
         "individually_valid_fragility_rows": len(individually_valid_rows),
         "jointly_valid_pair_count": len(jointly_valid_pairs),
         "jointly_valid_fragility_rows": len(jointly_valid_rows),
@@ -215,6 +265,48 @@ def summarize_cap_expansion_rows(
         arm: {
             "rows": len(grouped.get(arm, [])),
             "status_counts": _status_counts(grouped.get(arm, [])),
+            "endpoint_denominators": {
+                "all_rows": len(grouped.get(arm, [])),
+                "fragility_reached": sum(
+                    row.get("fragility_status") == "reached" for row in grouped.get(arm, [])
+                ),
+                "certified": sum(
+                    row.get("certification_status") == "certified"
+                    for row in grouped.get(arm, [])
+                ),
+                "calibration_finite": sum(
+                    row.get("calibration_status") == "finite"
+                    for row in grouped.get(arm, [])
+                ),
+                "calibration_right_censored": sum(
+                    row.get("calibration_status") == "right_censored"
+                    for row in grouped.get(arm, [])
+                ),
+                "wald_ok": sum(
+                    row.get("wald_status") == "ok" for row in grouped.get(arm, [])
+                ),
+                "bootstrap_ok": sum(
+                    row.get("bootstrap_status") == "ok" for row in grouped.get(arm, [])
+                ),
+            },
+            "bootstrap_rejections": {
+                "denominator": sum(
+                    row.get("bootstrap_status") == "ok"
+                    for row in grouped.get(arm, [])
+                ),
+                "rows_with_rejections": sum(
+                    (_optional_float(row, "bootstrap_rejected_resamples") or 0.0) > 0.0
+                    for row in grouped.get(arm, [])
+                    if row.get("bootstrap_status") == "ok"
+                ),
+                "total_rejected_resamples": int(
+                    sum(
+                        _optional_float(row, "bootstrap_rejected_resamples") or 0.0
+                        for row in grouped.get(arm, [])
+                        if row.get("bootstrap_status") == "ok"
+                    )
+                ),
+            },
             "pooled_metrics": _pooled_metrics(grouped.get(arm, [])),
         }
         for arm in CAP_ARM_NAMES
@@ -239,10 +331,17 @@ def _format_metric(value: Any, digits: int = 3) -> str:
 
 
 def _markdown(summary: Mapping[str, Any]) -> str:
+    provenance = summary.get("provenance", {})
+    timing = provenance.get("timing", {})
     lines = [
         "# Paired Cap-Expansion Evidence",
         "",
         "This is generated full-workflow evidence. It does not promote a production search cap.",
+        "",
+        f"Implementation commit: `{provenance.get('git_commit', 'n/a')}`  ",
+        f"Manifest checksum: `{summary.get('manifest_checksum', 'n/a')}`  ",
+        f"Total runtime (seconds): {_format_metric(timing.get('elapsed_seconds'), 2)}  ",
+        f"Budget exceeded: `{timing.get('budget_exceeded', 'n/a')}`",
         "",
         "| Arm | Rows | Workflow errors | Fragility reached |",
         "|---|---:|---:|---:|",
@@ -290,10 +389,20 @@ def summarize_cap_expansion(
 ) -> None:
     """Write JSON and Markdown summaries for a cap-expansion CSV."""
     manifest = load_cap_expansion_manifest(manifest_path)
+    results_path = Path(results_csv)
+    metadata_path = results_path.with_suffix(".metadata.json")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     with Path(results_csv).open(newline="", encoding="utf-8") as handle:
         summary = summarize_cap_expansion_rows(list(csv.DictReader(handle)), manifest)
+    summary["provenance"] = _summary_provenance(metadata)
     Path(summary_json).write_text(json.dumps(summary, indent=2), encoding="utf-8")
     Path(summary_markdown).write_text(_markdown(summary), encoding="utf-8")
+    metadata["artifact_checksums"] = {
+        "results_csv": _sha256_file(results_path),
+        "summary_json": _sha256_file(summary_json),
+        "summary_markdown": _sha256_file(summary_markdown),
+    }
+    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
 
 def _required_int(row: Mapping[str, Any], field: str) -> int:
@@ -305,6 +414,94 @@ def _required_int(row: Mapping[str, Any], field: str) -> int:
     if str(value).strip() != str(parsed):
         raise ValueError(f"{field} must be an integer")
     return parsed
+
+
+def _validate_status_semantics(row: Mapping[str, Any]) -> None:
+    fragility_status = str(row["fragility_status"])
+    certification_status = str(row["certification_status"])
+    calibration_status = str(row["calibration_status"])
+    wald_status = str(row["wald_status"])
+    bootstrap_status = str(row["bootstrap_status"])
+    workflow_status = str(row["workflow_status"])
+    reached = _optional_bool(row, "reached")
+
+    if fragility_status == "reached":
+        if reached is not True:
+            raise ValueError("reached fragility status requires reached=true")
+        if _optional_float(row, "greedy_fragility_50") is None:
+            raise ValueError("reached fragility status requires a greedy fragility value")
+    elif fragility_status == "unreached":
+        if reached is not False:
+            raise ValueError("unreached fragility status requires reached=false")
+        if _optional_float(row, "greedy_fragility_50") is not None:
+            raise ValueError("unreached fragility status cannot have a greedy fragility value")
+    elif reached is not None:
+        raise ValueError("error fragility status requires reached to be empty")
+
+    if certification_status == "skipped_unreached":
+        if fragility_status != "unreached" or _optional_bool(row, "certified") is not None:
+            raise ValueError("skipped certification requires an unreached fragility result")
+    elif certification_status in {"certified", "not_certified"}:
+        if fragility_status != "reached":
+            raise ValueError("completed certification requires reached fragility")
+        certified = _optional_bool(row, "certified")
+        expected_certified = certification_status == "certified"
+        if certified is not expected_certified:
+            raise ValueError("certification status does not match certified value")
+        exact = _optional_float(row, "exact_fragility_50")
+        if expected_certified and exact is None:
+            raise ValueError("certified result requires an exact fragility value")
+        if not expected_certified and exact is not None:
+            raise ValueError("not-certified result cannot have an exact fragility value")
+
+    reference_tail = _optional_float(row, "reference_tail_probability")
+    reference_fraction = _optional_float(row, "reference_reached_fraction")
+    if calibration_status == "finite":
+        if reached is not True or reference_tail is None:
+            raise ValueError("finite calibration requires reached data and a finite tail")
+        if reference_fraction is None or not math.isclose(reference_fraction, 1.0):
+            raise ValueError("finite calibration requires all reference searches to reach")
+    elif calibration_status == "right_censored":
+        if reached is not True or reference_tail is None:
+            raise ValueError("right-censored calibration requires reached data and a finite tail")
+        if reference_fraction is None or not 0.0 <= reference_fraction < 1.0:
+            raise ValueError("right-censored calibration requires a partial reference fraction")
+    elif calibration_status == "observed_unreached":
+        if reached is not False or reference_tail is not None:
+            raise ValueError("observed-unreached calibration requires no observed tail")
+
+    if wald_status == "ok" and _optional_float(row, "wald_z") is None:
+        raise ValueError("successful Wald status requires a finite Wald value")
+    if bootstrap_status == "ok":
+        if _optional_bool(row, "bootstrap_ci_excludes_zero") is None:
+            raise ValueError("successful bootstrap status requires a Boolean result")
+        rejected = _optional_float(row, "bootstrap_rejected_resamples")
+        if rejected is None or rejected < 0.0 or not rejected.is_integer():
+            raise ValueError("successful bootstrap status requires a nonnegative rejection count")
+
+    stage_error = any(row[field] == "error" for field in STAGE_FIELDS)
+    has_error_fields = any(str(row.get(field, "")).strip() for field in (
+        "error_stage",
+        "error_type",
+        "error_message",
+    ))
+    if workflow_status == "error":
+        if not stage_error and str(row.get("error_stage", "")).strip() not in {
+            "data",
+            "fit",
+            "influence",
+        }:
+            raise ValueError("workflow error requires a stage error")
+        if not has_error_fields:
+            raise ValueError("workflow errors require error fields")
+    else:
+        if stage_error or has_error_fields:
+            raise ValueError("stage or error fields require workflow_status=error")
+        if workflow_status == "partial":
+            if fragility_status != "unreached" and calibration_status != "observed_unreached":
+                raise ValueError("partial workflow requires an unavailable observed endpoint")
+        elif fragility_status != "reached" or calibration_status not in {"finite", "right_censored"}:
+            raise ValueError("ok workflow requires reached fragility and observed calibration")
 
 
 def _validate_row(
@@ -338,20 +535,12 @@ def _validate_row(
         value = str(row.get(field, ""))
         if value not in allowed:
             raise ValueError(f"invalid {field}: {value}")
-    reached = _optional_bool(row, "reached")
-    if row["fragility_status"] == "reached" and reached is not True:
-        raise ValueError("reached status must have reached=true")
-    if row["fragility_status"] == "unreached" and reached is not False:
-        raise ValueError("unreached status must have reached=false")
-    if row["workflow_status"] == "error":
-        for field in ("error_stage", "error_type", "error_message"):
-            if not str(row.get(field, "")).strip():
-                raise ValueError("workflow errors require error fields")
-    elif any(row[field] == "error" for field in STAGE_FIELDS):
-        raise ValueError("stage error requires workflow_status=error")
+    _validate_status_semantics(row)
     digest = str(row.get("dataset_digest", "")).strip()
     if not digest and row.get("error_stage") != "data":
         raise ValueError("dataset_digest is required for generated data")
+    if digest and _DIGEST_PATTERN.fullmatch(digest) is None:
+        raise ValueError("dataset_digest must be a lowercase SHA-256 hex digest")
     elapsed = _optional_float(row, "elapsed_seconds")
     if elapsed is None or elapsed < 0.0:
         raise ValueError("elapsed_seconds must be nonnegative")
@@ -403,9 +592,27 @@ def validate_cap_expansion(
     expected_jobs = {
         (job["arm"], *(job[field] for field in PAIRING_FIELDS)): job for job in jobs
     }
+    pairing_keys = cap_expansion_pairing_keys(manifest)
+    expected_data_seeds = dict(
+        zip(
+            pairing_keys,
+            replication_seeds(int(manifest["seed"]), len(pairing_keys)),
+            strict=True,
+        )
+    )
     for row in rows:
         key = (row["arm"], *(_pairing_key(row) or ()))
         _validate_row(row, expected_caps, expected_jobs[key])
+        pairing_key = _pairing_key(row)
+        assert pairing_key is not None
+        expected_data_seed = expected_data_seeds[pairing_key]
+        if _required_int(row, "data_seed") != expected_data_seed:
+            raise ValueError("data_seed does not match deterministic pairing seed")
+        child_seeds = derive_workflow_seeds(expected_data_seed)
+        if _required_int(row, "calibration_seed") != child_seeds.calibration:
+            raise ValueError("calibration_seed does not match deterministic child seed")
+        if _required_int(row, "bootstrap_seed") != child_seeds.bootstrap:
+            raise ValueError("bootstrap_seed does not match deterministic child seed")
 
     grouped: dict[tuple[Any, ...], list[dict[str, str]]] = defaultdict(list)
     for row in rows:
@@ -455,17 +662,26 @@ def validate_cap_expansion(
     ):
         raise ValueError("metadata budget status does not match timing")
 
+    checksums = metadata.get("artifact_checksums")
+    if not isinstance(checksums, dict):
+        raise TypeError("metadata is missing artifact checksums")
+    expected_checksums = {
+        "results_csv": _sha256_file(results_csv),
+        "summary_json": _sha256_file(summary_json),
+        "summary_markdown": _sha256_file(Path(summary_json).with_suffix(".md")),
+    }
+    if checksums != expected_checksums:
+        raise ValueError("artifact checksums do not match generated files")
+
     summary = json.loads(Path(summary_json).read_text(encoding="utf-8"))
-    if summary.get("rows") != len(rows):
-        raise ValueError("summary row count does not match results")
-    if set(summary.get("arms", {})) != set(CAP_ARM_NAMES):
-        raise ValueError("summary arms do not match results")
-    if set(summary.get("comparisons", {})) != set(CAP_ARM_NAMES) - {BASELINE_ARM}:
-        raise ValueError("summary comparisons do not match candidate arms")
+    expected_summary = summarize_cap_expansion_rows(rows, manifest)
+    expected_summary["provenance"] = _summary_provenance(metadata)
+    if summary != expected_summary:
+        raise ValueError("summary does not match results and metadata")
 
 
 def main() -> None:
-    parser = __import__("argparse").ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument("results_csv", type=Path)
     parser.add_argument("metadata_json", type=Path)
     parser.add_argument("summary_json", type=Path)

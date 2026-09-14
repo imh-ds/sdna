@@ -1,9 +1,11 @@
 """Tests for the reusable full simulation workflow."""
 
 import numpy as np
+import pytest
 
 from sdna.fragility import FragilityTarget
-from simulations.dgp import clean_planted_edge
+from simulations import full_workflow
+from simulations.dgp import clean_planted_edge, coalition_contamination
 from simulations.full_workflow import (
     dataset_digest,
     derive_workflow_seeds,
@@ -104,3 +106,27 @@ def test_full_workflow_preserves_bootstrap_failure_status() -> None:
     assert result["bootstrap_status"] == "error"
     assert result["workflow_status"] == "error"
     assert result["error_stage"] == "bootstrap"
+
+
+def test_full_workflow_labels_influence_failure_as_workflow_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset = coalition_contamination(20, 5, np.random.default_rng(7))
+
+    def failing_influence(*args, **kwargs):
+        raise RuntimeError("synthetic influence failure")
+
+    monkeypatch.setattr(full_workflow, "exact_loo_influence", failing_influence)
+    result = run_full_workflow(
+        dataset,
+        target=FragilityTarget("relative", 0.5),
+        search_cap=2,
+        calibration_simulations=1,
+        bootstrap_samples=1,
+        bootstrap_confidence=0.95,
+        certification_combination_budget=20,
+        seeds=derive_workflow_seeds(7),
+    )
+
+    assert result["workflow_status"] == "error"
+    assert result["error_stage"] == "influence"

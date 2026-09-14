@@ -1,25 +1,28 @@
 """Tests for cap-expansion summaries and artifact validation."""
 
 import csv
+import hashlib
 import json
 from collections import Counter
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
+from simulations.full_workflow import derive_workflow_seeds
+from simulations.run_simulation import replication_seeds
 from tools.cap_expansion_manifest import (
     PAIRING_FIELDS,
+    cap_expansion_pairing_keys,
     expand_cap_expansion_jobs,
     load_cap_expansion_manifest,
     manifest_checksum,
 )
 from tools.run_cap_expansion import CAP_EXPANSION_FIELDNAMES
 from tools.summarize_cap_expansion import (
+    summarize_cap_expansion,
     summarize_cap_expansion_rows,
     validate_cap_expansion,
 )
-
 
 MANIFEST_PATH = Path("simulations/configs/cap_expansion_v1.json")
 
@@ -30,7 +33,7 @@ def cap_row(
     *,
     reached: bool | None,
     status: str = "ok",
-    digest: str = "dataset-a",
+    digest: str = "a" * 64,
     observed_rho: float = 0.2,
     exact_fragility: float | None = 2.0,
 ) -> dict[str, object]:
@@ -119,9 +122,20 @@ def test_cap_summary_reports_transitions_and_joint_denominators() -> None:
 def _write_valid_artifact_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     manifest = load_cap_expansion_manifest(MANIFEST_PATH)
     jobs = expand_cap_expansion_jobs(manifest)
+    pair_keys = cap_expansion_pairing_keys(manifest)
+    data_seeds = dict(
+        zip(
+            pair_keys,
+            replication_seeds(int(manifest["seed"]), len(pair_keys)),
+            strict=True,
+        )
+    )
     rows: list[dict[str, object]] = []
     for job in jobs:
         row = cap_row(str(job["arm"]), int(job["replication"]), reached=True)
+        key = tuple(job[field] for field in PAIRING_FIELDS)
+        data_seed = data_seeds[key]
+        child_seeds = derive_workflow_seeds(data_seed)
         row.update(
             {
                 "scenario": job["scenario"],
@@ -130,6 +144,9 @@ def _write_valid_artifact_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Pat
                 "N": job["N"],
                 "p": job["p"],
                 "search_cap": job["search_cap"],
+                "data_seed": data_seed,
+                "calibration_seed": child_seeds.calibration,
+                "bootstrap_seed": child_seeds.bootstrap,
             }
         )
         rows.append(row)
@@ -177,11 +194,15 @@ def _write_valid_artifact_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Pat
         encoding="utf-8",
     )
     summary = tmp_path / "summary.json"
-    summary.write_text(
-        json.dumps({"rows": 1620, "arms": {"baseline_cap2": {}, "cap3": {}, "cap4": {}}, "comparisons": {"cap3": {}, "cap4": {}}}),
-        encoding="utf-8",
-    )
+    summarize_cap_expansion(results, summary, tmp_path / "summary.md", MANIFEST_PATH)
     return results, metadata, summary, MANIFEST_PATH
+
+
+def _rewrite_results(path: Path, rows: list[dict[str, object]]) -> None:
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CAP_EXPANSION_FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def test_cap_validator_rejects_mismatched_pair_digest(tmp_path: Path) -> None:
@@ -202,6 +223,89 @@ def test_cap_validator_accepts_valid_fixture(tmp_path: Path) -> None:
     results, metadata, summary, manifest = _write_valid_artifact_fixture(tmp_path)
 
     validate_cap_expansion(results, metadata, summary, manifest)
+
+
+def test_cap_summary_distinguishes_unreached_and_right_censored_rows() -> None:
+    manifest = load_cap_expansion_manifest(MANIFEST_PATH)
+    summary = summarize_cap_expansion_rows(hand_computable_cap_rows(), manifest)
+
+    comparison = summary["comparisons"]["cap3"]
+    assert comparison["baseline_unreached_rows"] == 1
+    assert comparison["candidate_unreached_rows"] == 0
+    assert comparison["baseline_right_censored_rows"] == 0
+    assert comparison["candidate_right_censored_rows"] == 0
+
+
+@pytest.mark.parametrize("mutation", ["workflow", "calibration", "wald"])
+def test_cap_validator_rejects_semantically_inconsistent_status(
+    tmp_path: Path, mutation: str
+) -> None:
+    results, metadata, summary, manifest = _write_valid_artifact_fixture(tmp_path)
+    with results.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    if mutation == "workflow":
+        rows[0].update(
+            {
+                "fragility_status": "unreached",
+                "reached": "False",
+                "greedy_fragility_50": "",
+                "exact_fragility_50": "",
+                "certified": "",
+                "certification_status": "skipped_unreached",
+                "calibration_status": "observed_unreached",
+                "reference_tail_probability": "",
+                "workflow_status": "ok",
+            }
+        )
+    elif mutation == "calibration":
+        rows[0].update(
+            {"calibration_status": "finite", "reference_tail_probability": ""}
+        )
+    else:
+        rows[0].update({"wald_status": "ok", "wald_z": ""})
+    _rewrite_results(results, rows)
+
+    with pytest.raises(ValueError, match="status|finite|wald|workflow"):
+        validate_cap_expansion(results, metadata, summary, manifest)
+
+
+def test_cap_validator_rejects_tampered_summary(tmp_path: Path) -> None:
+    results, metadata, summary, manifest = _write_valid_artifact_fixture(tmp_path)
+    summary_data = json.loads(summary.read_text(encoding="utf-8"))
+    summary_data["comparisons"]["cap3"]["matched_pairs"] = 0
+    summary.write_text(json.dumps(summary_data), encoding="utf-8")
+    metadata_data = json.loads(metadata.read_text(encoding="utf-8"))
+    metadata_data["artifact_checksums"]["summary_json"] = hashlib.sha256(
+        summary.read_bytes()
+    ).hexdigest()
+    metadata.write_text(json.dumps(metadata_data), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="summary"):
+        validate_cap_expansion(results, metadata, summary, manifest)
+
+
+def test_cap_validator_rejects_non_deterministic_pair_seed(tmp_path: Path) -> None:
+    results, metadata, summary, manifest = _write_valid_artifact_fixture(tmp_path)
+    with results.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    for index in (0, 540, 1080):
+        rows[index]["data_seed"] = "999"
+    _rewrite_results(results, rows)
+
+    with pytest.raises(ValueError, match="data_seed"):
+        validate_cap_expansion(results, metadata, summary, manifest)
+
+
+def test_cap_validator_rejects_malformed_dataset_digest(tmp_path: Path) -> None:
+    results, metadata, summary, manifest = _write_valid_artifact_fixture(tmp_path)
+    with results.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    for index in (0, 540, 1080):
+        rows[index]["dataset_digest"] = "tampered"
+    _rewrite_results(results, rows)
+
+    with pytest.raises(ValueError, match="dataset_digest"):
+        validate_cap_expansion(results, metadata, summary, manifest)
 
 
 def test_cap_validator_rejects_parameter_value_mismatch(tmp_path: Path) -> None:

@@ -13,7 +13,6 @@ from tools.cap_expansion_manifest import (
     load_cap_expansion_manifest,
 )
 
-
 MANIFEST_PATH = Path("simulations/configs/cap_expansion_v1.json")
 
 

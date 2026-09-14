@@ -10,7 +10,6 @@ import numpy as np
 from tools import run_cap_expansion as cap_runner
 from tools.cap_expansion_manifest import PAIRING_FIELDS
 
-
 MANIFEST_PATH = Path("simulations/configs/cap_expansion_v1.json")
 
 

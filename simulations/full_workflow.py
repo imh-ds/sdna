@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -100,7 +100,7 @@ def _initial_result(dataset: SimulatedDataset) -> dict[str, Any]:
 
 
 def _finish_status(result: dict[str, Any]) -> None:
-    if any(
+    if result["error_stage"] is not None or any(
         result[field] == "error"
         for field in (
             "fragility_status",
