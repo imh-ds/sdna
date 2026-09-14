@@ -124,7 +124,7 @@ git commit -m "feat: freeze certification usability audit manifest"
 
 - [ ] **Step 1: Write failing pair-identification tests**
 
-Use a three-key synthetic fixture with one cap-2-unreached/cap-3-reached pair, one cap-2-unreached/cap-4-reached pair, and one reached-to-reached pair. Add one newly reached row with a downstream error and assert it remains in the primary denominator. Assert duplicate keys, missing arms, and non-`reached` candidate rows are rejected.
+Use a three-key synthetic fixture with one cap-2-unreached/cap-3-reached pair, one cap-2-unreached/cap-4-reached pair, and one reached-to-reached pair. Add one newly reached row with a downstream error and assert it remains in the primary denominator. Assert duplicate keys, missing arms, and non-`reached` candidate rows are rejected. Test `identify_newly_reached_pairs` directly with the reduced fixture; the production `validate_cap_expansion` call remains reserved for a complete 1,620-row source artifact.
 
 - [ ] **Step 2: Run the focused tests to verify they fail**
 
@@ -353,9 +353,9 @@ Run:
 
 Expected: all tests pass, Ruff reports no violations, and compilation exits successfully. Remove `.pytest-tmp` after verification.
 
-- [ ] **Step 2: Run a reduced end-to-end rehearsal**
+- [ ] **Step 2: Run a reduced helper-level rehearsal**
 
-Use a synthetic three-key reference/instrumented fixture with one newly reached pair for each candidate cap, one reached-to-reached pair, and one downstream-error row. Run the audit, summarizer, and validator against that fixture and verify the four diagnostics, exact `U_to_R` denominator, paired digest/seed identity, and deliberate tamper rejection. Do not pass a reduced manifest to the production runner: the frozen manifest loader must continue to reject any matrix other than the declared 1,620-row study. Keep temporary files under `.task25-artifacts/` and do not change the committed frozen manifests.
+Use a synthetic three-key reference/instrumented fixture with one newly reached pair for each candidate cap, one reached-to-reached pair, and one downstream-error row. Run the pair extractor and summarizer against that fixture and exercise their deliberate tamper rejection checks. Run the complete production validator only against the downloaded 1,620-row Task 24 artifact; do not pass a reduced manifest to the production runner or production validator. The frozen manifest loader must continue to reject any matrix other than the declared 1,620-row study. Keep temporary files under `.task25-artifacts/` and do not change the committed frozen manifests.
 
 - [ ] **Step 3: Record the final implementation commit**
 
