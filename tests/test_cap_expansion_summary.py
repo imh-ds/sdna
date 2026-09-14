@@ -4,6 +4,7 @@ import csv
 import json
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -203,6 +204,20 @@ def test_cap_validator_accepts_valid_fixture(tmp_path: Path) -> None:
     validate_cap_expansion(results, metadata, summary, manifest)
 
 
+def test_cap_validator_rejects_parameter_value_mismatch(tmp_path: Path) -> None:
+    results, metadata, summary, manifest = _write_valid_artifact_fixture(tmp_path)
+    with results.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    rows[0]["parameter"] = "999"
+    with results.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CAP_EXPANSION_FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(ValueError, match="parameter"):
+        validate_cap_expansion(results, metadata, summary, manifest)
+
+
 def test_methodology_page_points_to_frozen_implementation_contract() -> None:
     text = Path("docs/methodology/cap_expansion_study_v1.md").read_text(encoding="utf-8")
 
@@ -225,3 +240,6 @@ def test_cap_expansion_workflow_is_manual_only() -> None:
     assert "tools.run_cap_expansion" in text
     assert "--validate" in text
     assert "actions/upload-artifact" in text
+    assert "metadata['timing']['budget_exceeded']" in text
+    assert "grep -q 'budget_exceeded=true'" not in text
+    assert text.count("$CAP_EXPANSION_DIR/results.metadata.json") >= 2

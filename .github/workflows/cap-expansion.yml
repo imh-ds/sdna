@@ -43,7 +43,7 @@ jobs:
           } > "$CAP_EXPANSION_DIR/github-run.txt"
           {
             echo "python -m tools.run_cap_expansion simulations/configs/cap_expansion_v1.json $CAP_EXPANSION_DIR/results.csv"
-            echo "python -m tools.summarize_cap_expansion $CAP_EXPANSION_DIR/results.csv $CAP_EXPANSION_DIR/summary.json $CAP_EXPANSION_DIR/summary.md simulations/configs/cap_expansion_v1.json --validate"
+            echo "python -m tools.summarize_cap_expansion $CAP_EXPANSION_DIR/results.csv $CAP_EXPANSION_DIR/results.metadata.json $CAP_EXPANSION_DIR/summary.json $CAP_EXPANSION_DIR/summary.md simulations/configs/cap_expansion_v1.json --validate"
           } > "$CAP_EXPANSION_DIR/commands.txt"
 
       - name: Run the complete paired cap-expansion study
@@ -60,6 +60,7 @@ jobs:
         run: >-
           python -m tools.summarize_cap_expansion
           "$CAP_EXPANSION_DIR/results.csv"
+          "$CAP_EXPANSION_DIR/results.metadata.json"
           "$CAP_EXPANSION_DIR/summary.json"
           "$CAP_EXPANSION_DIR/summary.md"
           simulations/configs/cap_expansion_v1.json
@@ -71,8 +72,7 @@ jobs:
           CAP_EXPANSION_DIR: ${{ runner.temp }}/sdna-cap-expansion
         run: |
           if test -f "$CAP_EXPANSION_DIR/results.metadata.json"; then
-            python -c "import json, os; metadata=json.load(open(os.path.join(os.environ['CAP_EXPANSION_DIR'], 'results.metadata.json'), encoding='utf-8')); print('budget_exceeded=' + str(metadata['timing']['budget_exceeded']).lower()); print('elapsed_seconds=' + str(metadata['timing']['elapsed_seconds']))"
-            if grep -q 'budget_exceeded=true' "$CAP_EXPANSION_DIR/results.metadata.json"; then
+            if python -c "import json, os; metadata=json.load(open(os.path.join(os.environ['CAP_EXPANSION_DIR'], 'results.metadata.json'), encoding='utf-8')); exceeded=bool(metadata['timing']['budget_exceeded']); print('budget_exceeded=' + str(exceeded).lower()); print('elapsed_seconds=' + str(metadata['timing']['elapsed_seconds'])); raise SystemExit(0 if exceeded else 1)"; then
               echo "::warning::Task 24 cap-expansion study exceeded its 15-minute operational budget; artifact retained for review."
             fi
           else

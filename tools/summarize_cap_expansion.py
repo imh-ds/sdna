@@ -307,7 +307,11 @@ def _required_int(row: Mapping[str, Any], field: str) -> int:
     return parsed
 
 
-def _validate_row(row: Mapping[str, Any], expected_caps: Mapping[str, int]) -> None:
+def _validate_row(
+    row: Mapping[str, Any],
+    expected_caps: Mapping[str, int],
+    expected_job: Mapping[str, Any],
+) -> None:
     arm = str(row.get("arm", ""))
     if arm not in expected_caps:
         raise ValueError(f"unknown arm: {arm}")
@@ -315,6 +319,17 @@ def _validate_row(row: Mapping[str, Any], expected_caps: Mapping[str, int]) -> N
         _required_int(row, field)
     if _required_int(row, "search_cap") != expected_caps[arm]:
         raise ValueError(f"{arm} search_cap does not match manifest")
+    expected_parameter = expected_job["parameter"]
+    actual_parameter = str(row.get("parameter", "")).strip()
+    if expected_parameter is None:
+        if actual_parameter:
+            raise ValueError("parameter must be empty for this scenario")
+    else:
+        try:
+            if float(actual_parameter) != float(expected_parameter):
+                raise ValueError("parameter does not match manifest")
+        except ValueError:
+            raise ValueError("parameter does not match manifest") from None
     if _optional_float(row, "fragility_target") != 0.5:
         raise ValueError("fragility_target must be 0.5")
     if _optional_bool(row, "calibration_require_reached") is not False:
@@ -385,8 +400,12 @@ def validate_cap_expansion(
     if set(actual_keys) != expected_keys:
         raise ValueError("results arm/pairing keys do not match the frozen manifest")
     expected_caps = {job["arm"]: int(job["search_cap"]) for job in jobs}
+    expected_jobs = {
+        (job["arm"], *(job[field] for field in PAIRING_FIELDS)): job for job in jobs
+    }
     for row in rows:
-        _validate_row(row, expected_caps)
+        key = (row["arm"], *(_pairing_key(row) or ()))
+        _validate_row(row, expected_caps, expected_jobs[key])
 
     grouped: dict[tuple[Any, ...], list[dict[str, str]]] = defaultdict(list)
     for row in rows:
