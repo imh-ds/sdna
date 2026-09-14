@@ -795,6 +795,8 @@ implementation consequence rather than silently changing an earlier record.
   `tools/run_certification_usability.py`,
   `tools/summarize_certification_usability.py`, and
   `simulations/configs/certification_usability_v1.json`.
+- **Implementation commit:** `c6a4f53` (`ci: specify certification usability
+  validation workflow`).
 - **Status:** The Task 6 workflow and methodology contract are implemented;
   hosted execution and the resulting mechanism decision remain pending. The
-  implementation commit is recorded after commit finalization.
+  Task 6 contract is ready for the hosted execution gate.
