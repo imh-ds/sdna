@@ -676,3 +676,19 @@ implementation consequence rather than silently changing an earlier record.
   repository-level action is a reviewed PR merge followed by manual hosted
   execution; only a later, separately approved validation task may change the
   production cap or introduce optimization.
+- **Review-correction provenance:** The first PR #13 matrix run,
+  `34868854989`, failed only its Python 3.11/3.12/3.13 Ruff lint jobs on
+  commit `875f03c`; the fixed-seed smoke test passed. The root cause was eight
+  import-order/unused-import violations in
+  `simulations/full_workflow.py`, `simulations/run_simulation.py`,
+  `tools/run_cap_expansion.py`, and the three new cap-expansion test modules.
+  The independent review also identified semantic-status, summary-integrity,
+  deterministic-seed, checksum, right-censoring-label, runtime-reporting,
+  and influence-error-state gaps. These were corrected in commit
+  `c0aef22325fc500124898ddd7349a688df54ab9d`, with regression coverage in
+  `tests/test_cap_expansion_summary.py` and
+  `tests/test_full_workflow.py`. The reviewer-confirmed limitation that the
+  CSV cannot independently prove digest content without retaining generated
+  matrices is explicit: validation checks lowercase SHA-256 format and paired
+  equality, while `tools/run_cap_expansion.py` computes the digest from the
+  generated dataset.
