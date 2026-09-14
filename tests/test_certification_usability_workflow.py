@@ -39,3 +39,4 @@ def test_certification_usability_workflow_is_manual_only_and_uploads_failures() 
         assert required in text
     for forbidden in ("schedule:", "push:", "pull_request:"):
         assert forbidden not in text
+    assert "\n    env:\n      AUDIT_DIR: ${{ runner.temp }}" not in text
