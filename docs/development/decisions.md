@@ -774,3 +774,27 @@ implementation consequence rather than silently changing an earlier record.
   `docs/development/decisions.md`.
 - **Status:** Design and implementation plan committed; implementation,
   hosted execution, and any resulting mechanism decision remain pending.
+
+### ADR-024 implementation contract — Task 6
+
+- **Date:** 2026-09-14
+- **Decision:** Implement the approved certification-usability audit as a
+  manual-only workflow. The workflow first validates and audits the accepted
+  Task 24 artifact, then runs the frozen 1,620-row matrix with certification
+  diagnostics, validates reproduction against the reference, and uploads the
+  complete evidence bundle with 90-day retention.
+- **Why this happened:** Phase A needs a stable, reviewable source artifact,
+  while Phase B needs a reproducible execution path for the certification
+  diagnostics that Task 24 did not record. A manual trigger keeps this
+  diagnostic study out of routine pull-request gates and avoids implying that
+  a recurring weekly run is a scientific requirement.
+- **Files for independent review:**
+  `docs/methodology/certification_usability_study_v1.md`,
+  `.github/workflows/certification-usability.yml`,
+  `tools/audit_certification_usability.py`,
+  `tools/run_certification_usability.py`,
+  `tools/summarize_certification_usability.py`, and
+  `simulations/configs/certification_usability_v1.json`.
+- **Status:** The Task 6 workflow and methodology contract are implemented;
+  hosted execution and the resulting mechanism decision remain pending. The
+  implementation commit is recorded after commit finalization.
