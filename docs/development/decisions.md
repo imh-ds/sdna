@@ -612,3 +612,67 @@ implementation consequence rather than silently changing an earlier record.
   under the complete workflow. After implementation and hosted execution, a
   follow-up decision record must add the exact implementation commit, Actions
   run ID, artifact checksum, findings, and cap decision.
+
+## ADR-023 — Complete the paired cap-expansion implementation and retain cap 2 pending hosted execution
+
+- **Date:** 2026-09-14
+- **Decision:** Complete the Task 24 paired full-workflow implementation at
+  commit `de02a257ff2acd958b354397711ba6e4fd6270e9`. Retain
+  `search_cap=2` as the v0.1 production baseline. Treat cap 3 and cap 4 as
+  diagnostic sensitivity arms; do not promote either arm automatically or
+  change the v0.1 estimand from this run.
+- **Why this happened:** The prior reach-boundary diagnostic showed that
+  larger search caps can recover otherwise unreached rows, but it did not test
+  downstream calibration, certification, comparator, bootstrap, or runtime
+  behavior. Task 24 therefore froze a paired, same-data three-arm study before
+  any optimization or production-cap change. A final seed-contract correction
+  was included in the implementation commit because the loader previously
+  accepted any nonnegative seed even though the study seed was frozen.
+- **Local evidence provenance:** The complete 1,620-row study was run from
+  commit `de02a257ff2acd958b354397711ba6e4fd6270e9` with Python 3.12.1 and
+  NumPy 2.5.2. The results CSV SHA-256 was
+  `64a4362440f52e34a5da2275c30a1f017d5e8c4b80cc52aa62ae867bb5e83810` and
+  the frozen manifest checksum was
+  `415576f1fec5ccd2a47e0ad411d29e4d48c6e8e370609ae495ccc877fe74e974`.
+  The run produced 540 rows per arm in 564.23 seconds, below the 900-second
+  operational budget. All 1,620 Wald and bootstrap stages completed without
+  error; the 656 unreached rows are represented as partial workflow states,
+  not as numerical failures.
+- **Findings:** The cap-3 comparison had 284 reached-to-reached pairs, 44
+  unreached-to-reached pairs, and 212 unreached-to-unreached pairs, with no
+  reached-to-unreached pairs. Its paired reach-rate difference was 0.0815
+  (95% normal interval 0.0584 to 0.1046; denominator 540). Cap 4 had 284
+  reached-to-reached pairs, 68 unreached-to-reached pairs, and 188
+  unreached-to-unreached pairs, again with no reached-to-unreached pairs. Its
+  paired reach-rate difference was 0.1259 (95% normal interval 0.0979 to
+  0.1539; denominator 540). Baseline cap 2 certified 284 rows; cap 3 and cap
+  4 also certified 284 rows, while their newly reached rows were
+  `not_certified` (44 and 68 respectively). The cap expansion therefore
+  improved availability in this artifact without demonstrating additional
+  certified evidence sufficient to justify a production change.
+- **Hosted status:** The manual workflow is committed in
+  `.github/workflows/cap-expansion.yml` and the branch is pushed as
+  `codex/task-24-cap-expansion`. No GitHub Actions run ID or hosted artifact
+  checksum exists yet: dispatch was attempted against this branch and GitHub
+  returned HTTP 404 because the workflow is not present on the repository's
+  default branch. After a reviewed merge makes the workflow available on the
+  default branch, dispatch the workflow and append its exact run ID, commit,
+  artifact name, checksum, and any local/hosted reproducibility comparison to
+  this ADR.
+- **Files for independent review:**
+  `docs/superpowers/specs/2026-09-14-task24-cap-expansion-design.md`,
+  `docs/superpowers/plans/2026-09-14-task24-cap-expansion.md`,
+  `simulations/configs/cap_expansion_v1.json`,
+  `tools/cap_expansion_manifest.py`, `simulations/full_workflow.py`,
+  `tools/run_cap_expansion.py`, `tools/summarize_cap_expansion.py`,
+  `tests/test_cap_expansion_manifest.py`,
+  `tests/test_full_workflow.py`, `tests/test_cap_expansion_runner.py`,
+  `tests/test_cap_expansion_summary.py`,
+  `.github/workflows/cap-expansion.yml`, and
+  `docs/methodology/cap_expansion_study_v1.md`.
+- **Consequences:** The cap-expansion artifact is technically validated and
+  supports a clear availability finding, but the methodology page remains
+  pre-specified rather than upgraded to accepted hosted evidence. The next
+  repository-level action is a reviewed PR merge followed by manual hosted
+  execution; only a later, separately approved validation task may change the
+  production cap or introduce optimization.
