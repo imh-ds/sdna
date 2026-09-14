@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "study": "certification_usability_audit",
+  "source_manifest": "simulations/configs/cap_expansion_v1.json",
+  "source_manifest_checksum": "415576f1fec5ccd2a47e0ad411d29e4d48c6e8e370609ae495ccc877fe74e974",
+  "source_run_id": "34871220664",
+  "source_commit": "338b0d95cdb312b2805affb0de458e06508d80f0",
+  "source_artifact": "sdna-cap-expansion-34871220664",
+  "source_results_sha256": "110d0b4f266b253251ac1a64bb4195b61722008d426b74c75802d3de57b43d87",
+  "candidate_caps": [3, 4],
+  "primary_population": "baseline_unreached_candidate_reached",
+  "primary_endpoint": "candidate_certification_yield",
+  "instrumented_schema_version": 1,
+  "reason_values": [
+    "not_applicable_unreached",
+    "not_applicable_prior_error",
+    "certified",
+    "combination_budget_exhausted",
+    "not_certified_other",
+    "error"
+  ]
+}

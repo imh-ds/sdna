@@ -186,3 +186,4 @@ plan/
 legacy/
 .worktrees/
 .task24-artifacts/
+.task25-artifacts/

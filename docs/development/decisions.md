@@ -734,3 +734,104 @@ implementation consequence rather than silently changing an earlier record.
   `tools/summarize_cap_expansion.py`,
   `tests/test_cap_expansion_summary.py`, the hosted workflow, and the artifact
   checksums above when reproducing this record.
+
+## ADR-024 — Pre-specify a certification-usability audit before considering cap promotion
+
+- **Date:** 2026-09-14
+- **Decision:** Approve Task 25 as a diagnostic certification-usability study.
+  Begin with a read-only audit of the accepted Task 24 artifact, defining the
+  exact matched populations that were unreached at cap 2 and reached at cap 3
+  or cap 4. Run a separate instrumented paired rerun only when the existing
+  artifact cannot identify the certification bottleneck. Retain cap 2 as the
+  v0.1 production baseline throughout.
+- **Why this happened:** Task 24 demonstrated additional reach at caps 3 and
+  4, but its 44 cap-3 and 68 cap-4 newly reached rows were not certified. The
+  existing CSV records `not_certified` but does not record certification
+  combinations checked, budget exhaustion, or a dedicated failure reason.
+  More reached rows therefore cannot yet be treated as more usable evidence.
+- **Primary endpoint:** For each candidate cap `c` in `{3, 4}`, report
+  certification yield among the complete matched population
+  `U_to_R(c) = {baseline_cap2 unreached, cap-c reached}`. The denominator
+  includes downstream failures and is reported with exact row identities; no
+  missing or invalid result is converted to zero.
+- **Protocol constraints:** The conditional rerun must preserve the Task 24
+  matrix, data and child seeds, estimator, target `0.5`, certification budget
+  `1000`, calibration/tail treatment, Wald comparator, bootstrap procedure,
+  and 900-second ceiling. It may add only certification diagnostics. No cap
+  promotion, optimization, workload increase, unregistered threshold, or
+  independent pooling of audit and rerun results is authorized by this ADR.
+- **Design provenance:** The approved design was introduced in
+  `9c9d467748bfdc6636a59dc04af1f30e491c9565` and clarified for prior-stage
+  errors in `e2e8223f8fd9d076865ebfab26875fde933b9aa0`. The implementation plan
+  was introduced in
+  `7d0c1888486b86b6b89d79053d503d621d1957d5`.
+- **Files for independent review:**
+  `docs/superpowers/specs/2026-09-14-task25-certification-usability-audit-design.md`,
+  `docs/superpowers/plans/2026-09-14-task25-certification-usability-audit.md`,
+  `docs/methodology/cap_expansion_study_v1.md`,
+  `tools/run_cap_expansion.py`, `simulations/full_workflow.py`,
+  `tools/summarize_cap_expansion.py`, and
+  `docs/development/decisions.md`.
+- **Status:** Design and implementation plan committed; implementation,
+  hosted execution, and any resulting mechanism decision remain pending.
+
+### ADR-024 implementation contract — Task 6
+
+- **Date:** 2026-09-14
+- **Decision:** Implement the approved certification-usability audit as a
+  manual-only workflow. The workflow first validates and audits the accepted
+  Task 24 artifact, then runs the frozen 1,620-row matrix with certification
+  diagnostics, validates reproduction against the reference, and uploads the
+  complete evidence bundle with 90-day retention.
+- **Why this happened:** Phase A needs a stable, reviewable source artifact,
+  while Phase B needs a reproducible execution path for the certification
+  diagnostics that Task 24 did not record. A manual trigger keeps this
+  diagnostic study out of routine pull-request gates and avoids implying that
+  a recurring weekly run is a scientific requirement.
+- **Files for independent review:**
+  `docs/methodology/certification_usability_study_v1.md`,
+  `.github/workflows/certification-usability.yml`,
+  `tools/audit_certification_usability.py`,
+  `tools/run_certification_usability.py`,
+  `tools/summarize_certification_usability.py`, and
+  `simulations/configs/certification_usability_v1.json`.
+- **Implementation commit:** `c6a4f53` (`ci: specify certification usability
+  validation workflow`).
+- **Status:** The Task 6 workflow and methodology contract are implemented;
+  hosted execution and the resulting mechanism decision remain pending. The
+  Task 6 contract is ready for the hosted execution gate.
+
+### ADR-024 pre-hosted validation — Task 7
+
+- **Date:** 2026-09-14
+- **Implementation tip:** `0d1e46e` (`test: align audit regression with
+  validator imports`). The Task 6 workflow contract and provenance are in
+  `c6a4f53` and `3a320e8`; the pre-hosted integration corrections are
+  `0d06534` (Phase A source-manifest path), `e7730c1` (Phase B source-manifest
+  path), and `e83cd93` (serialized certification-budget flag parsing).
+- **Local verification:** The complete local suite passed with 168 tests;
+  Ruff and Python compilation passed. The accepted Task 24 source artifact
+  passed its production validator, and the synthetic Phase A/Phase B helper
+  rehearsal passed the deliberate tamper-rejection checks.
+- **Local instrumented replay:** A full 1,620-row replay completed in
+  584.885 seconds under the 900-second ceiling, with 540 rows per arm,
+  `U_to_R(3)=44`, `U_to_R(4)=68`, zero certified rows in both populations,
+  and all 44/68 rows classified as `combination_budget_exhausted`. Its
+  outputs are retained outside Git under `.task25-artifacts/` with results
+  SHA-256 `e225483b71fe2101f358329142bd3ab83560245073d083e2fb8842ae10fce9c1`,
+  summary SHA-256
+  `fa709b92f1bcdfacaadedeb396ac36b7dc9dfe2d4f3a6bef57450af1e7ea2dcc`, and
+  Markdown SHA-256
+  `c4ebc50720be4f8c91b789f257c6747fe178cb7c047729ddf5b4be6ed2618da4`.
+- **Local replay limitation:** The local replay used Python 3.12.1 and
+  NumPy 2.5.2, while the accepted Task 24 artifact used Python 3.11.16 and
+  NumPy 2.4.6. The strict reproduction check therefore rejected the local
+  replay: 270 dataset digests and two `reference_reached_fraction` values
+  differed, although row counts, arm balance, pairing keys, seeds, statuses,
+  and the `U_to_R` populations matched. This is not accepted as Phase B
+  evidence; the manual workflow’s Python 3.11 environment must complete the
+  strict reference comparison before hosted evidence is accepted.
+- **Interpretation:** The validator correctly refuses to convert a
+  cross-runtime numerical difference into a passing reproduction. No cap
+  promotion or protocol change follows from the local replay. Hosted run ID,
+  artifact checksums, and the resulting mechanism decision remain pending.
