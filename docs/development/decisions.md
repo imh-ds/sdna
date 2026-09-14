@@ -564,3 +564,30 @@ implementation consequence rather than silently changing an earlier record.
   dependency lockfile, and that limitation is documented rather than hidden.
 - **Status:** Implemented in `.pre-commit-config.yaml` and the CI scope
   documentation.
+
+## ADR-022 — Pre-specify a paired full-workflow search-cap expansion study
+
+- **Date:** 2026-09-14
+- **Decision:** Specify a three-arm, full-workflow comparison of
+  `search_cap=2`, `search_cap=3`, and `search_cap=4` using the frozen v0.1
+  matrix, identical generated data and row seeds across arms, and 25
+  calibration simulations, 100 bootstrap resamples, and certification budget
+  1000 per row. The study contains 540 rows per arm (1,620 total) and runs
+  only through a manual workflow. Cap 2 remains the production baseline, and
+  no arm is promoted automatically.
+- **Rationale:** The hosted reach-boundary diagnostic found paired availability
+  gains for caps 3 and 4 but intentionally made no full-workflow claims. A
+  complete paired study is needed to determine whether those gains persist
+  through calibration, certification, bootstrap, comparator behavior, and
+  practical runtime while preserving the frozen v0.1 estimand. The design
+  therefore fixes the data and randomization contract, separates pooled from
+  jointly-valid pair metrics, preserves explicit censoring/failure states, and
+  sets a 15-minute hosted operational ceiling without treating it as a
+  scientific threshold.
+- **Consequences:** The next implementation must add a validated paired
+  artifact and evidence report under the approved specification. A result can
+  support a later cap decision but cannot alter v0.1, add undeclared arms, or
+  introduce optimization. Any production-cap change requires a subsequent
+  decision entry.
+- **Status:** Design specified and committed; implementation is deferred until
+  the specification is reviewed.
