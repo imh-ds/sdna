@@ -75,6 +75,12 @@ CAP_EXPANSION_FIELDNAMES = [
     "error_message",
     "elapsed_seconds",
 ]
+CERTIFICATION_DIAGNOSTIC_FIELDNAMES = [
+    "certification_combinations_checked",
+    "certification_combination_budget",
+    "certification_budget_exhausted",
+    "certification_failure_reason",
+]
 
 
 def pairing_key(job: dict[str, Any]) -> tuple[Any, ...]:
@@ -122,8 +128,10 @@ def _error_row(
     *,
     error_type: str,
     error_message: str,
+    fieldnames: list[str],
+    certification_combination_budget: int,
 ) -> dict[str, Any]:
-    row = {field: None for field in CAP_EXPANSION_FIELDNAMES}
+    row = {field: None for field in fieldnames}
     row.update(
         {
             "arm": job["arm"],
@@ -151,6 +159,15 @@ def _error_row(
             "elapsed_seconds": 0.0,
         }
     )
+    if "certification_combination_budget" in fieldnames:
+        row.update(
+            {
+                "certification_combinations_checked": None,
+                "certification_combination_budget": certification_combination_budget,
+                "certification_budget_exhausted": False,
+                "certification_failure_reason": "not_applicable_prior_error",
+            }
+        )
     return row
 
 
@@ -163,6 +180,7 @@ def _run_job(
     bootstrap_confidence: float,
     certification_combination_budget: int,
     calibration_require_reached: bool,
+    fieldnames: list[str],
 ) -> dict[str, Any]:
     started = perf_counter()
     seeds = derive_workflow_seeds(data_seed)
@@ -195,7 +213,7 @@ def _run_job(
         **workflow,
         "elapsed_seconds": perf_counter() - started,
     }
-    return {field: row.get(field) for field in CAP_EXPANSION_FIELDNAMES}
+    return {field: row.get(field) for field in fieldnames}
 
 
 def _git_commit() -> str | None:
@@ -244,9 +262,17 @@ def _metadata(
     }
 
 
-def run_cap_expansion(config_path: str | Path, output_path: str | Path) -> None:
+def run_cap_expansion(
+    config_path: str | Path,
+    output_path: str | Path,
+    *,
+    include_certification_diagnostics: bool = False,
+) -> None:
     """Run all declared paired jobs and write CSV plus adjacent metadata."""
     manifest = load_cap_expansion_manifest(config_path)
+    fieldnames = list(CAP_EXPANSION_FIELDNAMES)
+    if include_certification_diagnostics:
+        fieldnames.extend(CERTIFICATION_DIAGNOSTIC_FIELDNAMES)
     jobs = expand_cap_expansion_jobs(manifest)
     seeds = _pairing_seed_map(manifest, jobs)
     datasets: dict[tuple[Any, ...], Any] = {}
@@ -269,6 +295,10 @@ def run_cap_expansion(config_path: str | Path, output_path: str | Path) -> None:
                         child_seeds.bootstrap,
                         error_type=type(error).__name__,
                         error_message=str(error),
+                        fieldnames=fieldnames,
+                        certification_combination_budget=int(
+                            manifest["certification_combination_budget"]
+                        ),
                     )
                 )
                 continue
@@ -282,13 +312,14 @@ def run_cap_expansion(config_path: str | Path, output_path: str | Path) -> None:
                 float(manifest["bootstrap_confidence"]),
                 int(manifest["certification_combination_budget"]),
                 bool(manifest["calibration_require_reached"]),
+                fieldnames,
             )
         )
 
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with output_file.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=CAP_EXPANSION_FIELDNAMES)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
     metadata = _metadata(manifest, rows, perf_counter() - started)

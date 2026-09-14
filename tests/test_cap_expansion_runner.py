@@ -8,9 +8,60 @@ from pathlib import Path
 import numpy as np
 
 from tools import run_cap_expansion as cap_runner
+from tools import run_certification_usability as usability_runner
 from tools.cap_expansion_manifest import PAIRING_FIELDS
 
 MANIFEST_PATH = Path("simulations/configs/cap_expansion_v1.json")
+TASK24_FIELDNAMES = [
+    "arm",
+    "scenario",
+    "parameter_id",
+    "parameter",
+    "replication",
+    "N",
+    "p",
+    "data_seed",
+    "calibration_seed",
+    "bootstrap_seed",
+    "dataset_digest",
+    "fragility_target",
+    "search_cap",
+    "calibration_require_reached",
+    "true_rho",
+    "observed_rho",
+    "lambda",
+    "contamination_count",
+    "contamination_status",
+    "greedy_fragility_50",
+    "exact_fragility_50",
+    "certified",
+    "reached",
+    "reference_tail_probability",
+    "reference_reached_fraction",
+    "wald_z",
+    "bootstrap_ci_excludes_zero",
+    "bootstrap_rejected_resamples",
+    "influence_top_k_precision",
+    "influence_top_k_recall",
+    "first_planted_reciprocal_rank",
+    "planted_absolute_influence_share",
+    "fragility_status",
+    "certification_status",
+    "calibration_status",
+    "wald_status",
+    "bootstrap_status",
+    "workflow_status",
+    "error_stage",
+    "error_type",
+    "error_message",
+    "elapsed_seconds",
+]
+CERTIFICATION_DIAGNOSTIC_FIELDS = [
+    "certification_combinations_checked",
+    "certification_combination_budget",
+    "certification_budget_exhausted",
+    "certification_failure_reason",
+]
 
 
 def _small_jobs() -> list[dict[str, object]]:
@@ -81,3 +132,85 @@ def test_cap_expansion_runner_reuses_data_and_child_seeds(tmp_path, monkeypatch)
         "cap3",
         "cap4",
     }
+
+
+def test_cap_expansion_runner_default_schema_remains_task24_compatible(
+    tmp_path, monkeypatch
+) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest.update(
+        {
+            "calibration_simulations": 1,
+            "bootstrap_samples": 2,
+            "certification_combination_budget": 20,
+        }
+    )
+    monkeypatch.setattr(cap_runner, "load_cap_expansion_manifest", lambda _: manifest)
+    monkeypatch.setattr(cap_runner, "expand_cap_expansion_jobs", lambda _: _small_jobs())
+    output = tmp_path / "default.csv"
+
+    cap_runner.run_cap_expansion(MANIFEST_PATH, output)
+
+    with output.open(newline="", encoding="utf-8") as handle:
+        assert next(csv.reader(handle)) == TASK24_FIELDNAMES
+
+
+def test_cap_expansion_runner_instrumented_schema_appends_diagnostics(
+    tmp_path, monkeypatch
+) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest.update(
+        {
+            "calibration_simulations": 1,
+            "bootstrap_samples": 2,
+            "certification_combination_budget": 20,
+        }
+    )
+    monkeypatch.setattr(cap_runner, "load_cap_expansion_manifest", lambda _: manifest)
+    monkeypatch.setattr(cap_runner, "expand_cap_expansion_jobs", lambda _: _small_jobs())
+    output = tmp_path / "instrumented.csv"
+
+    usability_runner.run_certification_usability(
+        MANIFEST_PATH,
+        output,
+    )
+
+    with output.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert list(rows[0]) == TASK24_FIELDNAMES + CERTIFICATION_DIAGNOSTIC_FIELDS
+    assert {row["certification_combination_budget"] for row in rows} == {"20"}
+    assert all(row["certification_failure_reason"] for row in rows)
+
+
+def test_cap_expansion_runner_instrumented_data_error_has_diagnostic_state(
+    tmp_path, monkeypatch
+) -> None:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest.update(
+        {
+            "calibration_simulations": 1,
+            "bootstrap_samples": 2,
+            "certification_combination_budget": 20,
+        }
+    )
+    monkeypatch.setattr(cap_runner, "load_cap_expansion_manifest", lambda _: manifest)
+    monkeypatch.setattr(cap_runner, "expand_cap_expansion_jobs", lambda _: _small_jobs())
+
+    def failing_generate(*args, **kwargs):
+        raise RuntimeError("synthetic data failure")
+
+    monkeypatch.setattr(cap_runner, "generate_cap_expansion_dataset", failing_generate)
+    output = tmp_path / "instrumented-error.csv"
+
+    usability_runner.run_certification_usability(
+        MANIFEST_PATH,
+        output,
+    )
+
+    with output.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert {row["certification_combination_budget"] for row in rows} == {"20"}
+    assert {row["certification_failure_reason"] for row in rows} == {
+        "not_applicable_prior_error"
+    }
+    assert {row["certification_budget_exhausted"] for row in rows} == {"False"}
