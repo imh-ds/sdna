@@ -214,3 +214,14 @@ def test_methodology_page_points_to_frozen_implementation_contract() -> None:
         "cap-expansion.yml",
     ):
         assert required in text
+
+
+def test_cap_expansion_workflow_is_manual_only() -> None:
+    text = Path(".github/workflows/cap-expansion.yml").read_text(encoding="utf-8")
+
+    assert "workflow_dispatch:" in text
+    assert "schedule:" not in text
+    assert "pull_request:" not in text
+    assert "tools.run_cap_expansion" in text
+    assert "--validate" in text
+    assert "actions/upload-artifact" in text
