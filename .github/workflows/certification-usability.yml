@@ -15,9 +15,6 @@ jobs:
     name: Phase A audit and instrumented Phase B rerun
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      AUDIT_DIR: ${{ runner.temp }}/sdna-certification-usability
-      REFERENCE_DIR: ${{ runner.temp }}/sdna-certification-usability/reference
 
     steps:
       - name: Check out repository
@@ -33,6 +30,9 @@ jobs:
         run: python -m pip install -e ".[dev]" -c constraints-ci.txt
 
       - name: Prepare audit directory and provenance
+        env:
+          AUDIT_DIR: ${{ runner.temp }}/sdna-certification-usability
+          REFERENCE_DIR: ${{ runner.temp }}/sdna-certification-usability/reference
         run: |
           mkdir -p "$AUDIT_DIR" "$REFERENCE_DIR"
           cp simulations/configs/cap_expansion_v1.json "$AUDIT_DIR/cap_expansion_v1.json"
@@ -54,6 +54,7 @@ jobs:
       - name: Download accepted Task 24 reference artifact
         env:
           GH_TOKEN: ${{ github.token }}
+          REFERENCE_DIR: ${{ runner.temp }}/sdna-certification-usability/reference
         run: >-
           gh run download 34871220664
           --repo "$GITHUB_REPOSITORY"
@@ -61,6 +62,9 @@ jobs:
           --dir "$REFERENCE_DIR"
 
       - name: Run Phase A read-only artifact audit
+        env:
+          AUDIT_DIR: ${{ runner.temp }}/sdna-certification-usability
+          REFERENCE_DIR: ${{ runner.temp }}/sdna-certification-usability/reference
         run: >-
           python -m tools.audit_certification_usability
           "$REFERENCE_DIR/results.csv"
@@ -72,12 +76,17 @@ jobs:
           "$AUDIT_DIR/phase-a-audit.md"
 
       - name: Run instrumented Phase B workflow
+        env:
+          AUDIT_DIR: ${{ runner.temp }}/sdna-certification-usability
         run: >-
           python -m tools.run_certification_usability
           simulations/configs/cap_expansion_v1.json
           "$AUDIT_DIR/results.csv"
 
       - name: Summarize and validate Phase B evidence
+        env:
+          AUDIT_DIR: ${{ runner.temp }}/sdna-certification-usability
+          REFERENCE_DIR: ${{ runner.temp }}/sdna-certification-usability/reference
         run: >-
           python -m tools.summarize_certification_usability
           "$AUDIT_DIR/results.csv"
