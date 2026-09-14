@@ -184,7 +184,6 @@ def test_phase_a_passes_source_manifest_path_to_validator(tmp_path: Path, monkey
     def fake_validate(*args: object) -> None:
         seen.append(args[3])
 
-    monkeypatch.setattr(audit_module, "load_cap_expansion_manifest", lambda _: {"loaded": True})
     monkeypatch.setattr(audit_module, "load_certification_usability_manifest", lambda _: audit_config)
     monkeypatch.setattr(audit_module, "validate_cap_expansion", fake_validate)
     monkeypatch.setattr(audit_module, "_read_rows", lambda _: rows)
