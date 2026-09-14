@@ -203,7 +203,8 @@ def _summarize_population(
             [row.get("certification_failure_reason", "") for row in candidate_rows]
         ),
         "budget_exhausted_rows": sum(
-            row.get("certification_budget_exhausted") is True for row in candidate_rows
+            _optional_bool(row.get("certification_budget_exhausted")) is True
+            for row in candidate_rows
         ),
         "combination_counts": _combination_summary(candidate_rows),
         "downstream_status_counts": {

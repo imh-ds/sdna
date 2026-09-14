@@ -9,6 +9,7 @@ import pytest
 from tools.cap_expansion_manifest import load_cap_expansion_manifest
 from tools.certification_usability_manifest import load_certification_usability_manifest
 from tools.summarize_certification_usability import (
+    _summarize_population,
     _validate_diagnostic_row,
     compare_instrumented_rows_to_reference,
     summarize_certification_usability,
@@ -114,6 +115,23 @@ def test_reference_comparison_accepts_cross_runtime_numeric_rounding() -> None:
     rounded[0]["observed_rho"] = 0.2000000000001
 
     compare_instrumented_rows_to_reference(rounded, reference)
+
+
+def test_summary_counts_serialized_budget_exhaustion_flag() -> None:
+    row = instrumented_row(
+        "cap3",
+        0,
+        "reached",
+        certification_status="not_certified",
+        reason="combination_budget_exhausted",
+    )
+    row["certification_budget_exhausted"] = "True"
+
+    population = _summarize_population(
+        [{"candidate": row, "pair_key": ("clean_planted_edge", 50, 5, 0, 0)}]
+    )
+
+    assert population["budget_exhausted_rows"] == 1
 
 
 def test_reference_comparison_rejects_substantive_numeric_change() -> None:
