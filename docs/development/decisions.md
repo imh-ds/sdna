@@ -835,3 +835,56 @@ implementation consequence rather than silently changing an earlier record.
   cross-runtime numerical difference into a passing reproduction. No cap
   promotion or protocol change follows from the local replay. Hosted run ID,
   artifact checksums, and the resulting mechanism decision remain pending.
+
+### ADR-024 hosted evidence — Task 7
+
+- **Date:** 2026-09-14
+- **Hosted execution:** After PR #16 merged as `fcf7251`, the workflow-context
+  correction in PR #18 merged as `7b22b3fca39888e1a452cb5a7ad8ec244ccd752e`.
+  The manual-only workflow then completed successfully as Actions run
+  [`34895397606`](https://github.com/imh-ds/sdna/actions/runs/34895397606),
+  using Python 3.11.16 and NumPy 2.4.6. The artifact is
+  `sdna-certification-usability-34895397606`.
+- **Hosted validation:** Phase A downloaded and validated the accepted Task
+  24 artifact, and Phase B produced 1,620 rows (540 per arm). Strict
+  reference reproduction, diagnostic semantics, metadata, summary, and
+  artifact checks all passed. Runtime was 311.334860969 seconds under the
+  900-second ceiling; `budget_exceeded` was false.
+- **Hosted checksums:** `results.csv` is
+  `4ec0068d8fe2b2b62df45fccbbf71f884c50589e319e48c3a2400111ae051918`,
+  `summary.json` is
+  `139a803c804e5382515a64b62f4fc764b90b6e0e568f7f579e2b651b0f3af1f6`,
+  `summary.md` is
+  `e61a141a7775482c5e43f79126f3a1be4aebf8eb52db264a7c9f673f91dc2975`,
+  `phase-a-audit.json` is
+  `6c8a35ee9d625214b2b3acc69f343d311d4ce508f4f25345c7e60c77d5fedd17`, and
+  `phase-a-audit.md` is
+  `81a4307c136b07730e77448a7d6270bc0b5c56a719dd0ad0c3f46d29daa3d8f8`.
+- **Hosted finding:** The exact primary populations were `U_to_R(3)=44` and
+  `U_to_R(4)=68`; certification yield was `0/44` and `0/68`. Every population
+  record was `not_certified` with reason `combination_budget_exhausted` and
+  the exhaustion flag true. The certification routine checked 3,900
+  combinations across the cap-3 population and 6,300 across the cap-4
+  population before the next complete subset size exceeded the
+  1,000-combination budget. No population record had a certification error or
+  prior-stage error. All records had right-censored calibration, `ok` Wald,
+  `ok` bootstrap, and `ok` overall workflow status.
+- **Mechanism interpretation:** The diagnostic identifies certification
+  search-budget exhaustion as the limiting mechanism for the newly reached
+  rows; it does not establish that increasing the budget would certify them.
+  The evidence is not pooled with Phase A as independent evidence, and no cap
+  promotion, budget change, optimization, or threshold change is authorized.
+  Cap 2 remains the v0.1 production baseline; caps 3 and 4 remain diagnostic
+  sensitivity arms.
+- **Files for independent review:**
+  `docs/methodology/certification_usability_study_v1.md`,
+  `.github/workflows/certification-usability.yml`,
+  `simulations/configs/certification_usability_v1.json`,
+  `tools/audit_certification_usability.py`,
+  `tools/run_certification_usability.py`,
+  `tools/summarize_certification_usability.py`, and the downloaded artifact
+  named above.
+- **Status:** Task 25’s diagnostic audit is technically complete. The
+  mechanism finding is recorded without promoting a cap or changing the
+  production protocol. Any follow-up budget study requires a new
+  pre-specified methodological decision.

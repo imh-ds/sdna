@@ -1,9 +1,9 @@
 # Certification-usability audit v1
 
-**Status:** Pre-specified and implemented as a diagnostic audit. The audit
-does not promote a search cap or change the v0.1 production baseline. Hosted
-execution is manual-only and remains pending until the implementation is
-merged and the workflow is run successfully.
+**Status:** Pre-specified, implemented, and technically validated by hosted
+run [`34895397606`](https://github.com/imh-ds/sdna/actions/runs/34895397606)
+on main commit `7b22b3fca39888e1a452cb5a7ad8ec244ccd752e`. The audit does not
+promote a search cap or change the v0.1 production baseline.
 
 This page is the user-facing description of Task 25. The approved design
 specification is
@@ -101,6 +101,37 @@ reason counts, budget exhaustion, downstream statuses, strata, exact pair
 keys, and provenance. The summary and metadata are checked against the
 results and the frozen Task 24 artifact before the run can be accepted as
 technical evidence.
+
+## Hosted result
+
+The hosted run produced 1,620 instrumented rows (540 per arm) in 311.335
+seconds, below the 900-second ceiling. Its strict reference comparison and
+all artifact checks passed. Phase A identified 44 `U_to_R(3)` rows and 68
+`U_to_R(4)` rows. Neither population contained a certified row, so
+certification yield was `0/44 = 0.0` for cap 3 and `0/68 = 0.0` for cap 4.
+
+All population records—44 cap-3 records and 68 cap-4 records—were classified
+as `combination_budget_exhausted`; there were no certification errors or
+prior workflow errors in these populations. The exact certification search
+checked 3,900 combinations across the 44 cap-3 records and 6,300 across the
+68 cap-4 records before the next complete subset size would exceed the
+configured budget of `1000`. Their calibration status was right-censored, while Wald,
+bootstrap, and overall workflow statuses were `ok` for every row. Thus the
+observed limitation is the certification search budget, not a downstream
+workflow failure.
+
+The hosted artifact is
+`sdna-certification-usability-34895397606`. Its principal checksums are:
+
+| File | SHA-256 |
+| --- | --- |
+| `results.csv` | `4ec0068d8fe2b2b62df45fccbbf71f884c50589e319e48c3a2400111ae051918` |
+| `summary.json` | `139a803c804e5382515a64b62f4fc764b90b6e0e568f7f579e2b651b0f3af1f6` |
+| `summary.md` | `e61a141a7775482c5e43f79126f3a1be4aebf8eb52db264a7c9f673f91dc2975` |
+
+This is diagnostic evidence, not an authorization to increase the
+certification budget or promote a cap. Cap 2 remains the v0.1 production
+baseline; any future change requires a separate pre-specified decision.
 
 Regardless of the result, cap 2 remains the v0.1 production baseline. A
 future cap-promotion decision would require a separate, explicitly approved
