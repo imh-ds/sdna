@@ -589,5 +589,24 @@ implementation consequence rather than silently changing an earlier record.
   support a later cap decision but cannot alter v0.1, add undeclared arms, or
   introduce optimization. Any production-cap change requires a subsequent
   decision entry.
-- **Status:** Design specified and committed; implementation is deferred until
-  the specification is reviewed.
+- **Status:** Design specified and committed; user approval received; detailed
+  implementation plan is committed separately; implementation and hosted
+  execution remain pending.
+- **Decision introduced in commit:** `bb7a851`
+- **Design/specification:**
+  [`docs/superpowers/specs/2026-09-14-task24-cap-expansion-design.md`](../superpowers/specs/2026-09-14-task24-cap-expansion-design.md)
+- **Implementation plan:**
+  [`docs/superpowers/plans/2026-09-14-task24-cap-expansion.md`](../superpowers/plans/2026-09-14-task24-cap-expansion.md)
+- **Independent-review files:**
+  `simulations/configs/cap_expansion_v1.json`,
+  `tools/cap_expansion_manifest.py`, `simulations/full_workflow.py`,
+  `tools/run_cap_expansion.py`, `tools/summarize_cap_expansion.py`,
+  `.github/workflows/cap-expansion.yml`, and
+  `docs/methodology/cap_expansion_study_v1.md`.
+- **Review rationale:** The hosted reach-only diagnostic found paired cap
+  sensitivity but did not establish calibration, certification, bootstrap, or
+  practical-runtime behavior. The planned full-workflow comparison preserves
+  the frozen v0.1 estimand while testing whether the availability gains persist
+  under the complete workflow. After implementation and hosted execution, a
+  follow-up decision record must add the exact implementation commit, Actions
+  run ID, artifact checksum, findings, and cap decision.
