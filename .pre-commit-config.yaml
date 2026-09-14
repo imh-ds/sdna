@@ -1,0 +1,11 @@
+default_language_version:
+  python: python3.11
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.7
+    hooks:
+      - id: ruff-check
+        args: [src, tests, simulations, benchmarks, tools]
+        pass_filenames: false
+        always_run: true

@@ -53,6 +53,17 @@ workflow:
 This catches formatting, import, and common correctness issues throughout the
 code that contributors run or modify.
 
+The CI workflow installs its direct quality-gate tools through
+[`constraints-ci.txt`](../../constraints-ci.txt), so Ruff, mypy, pytest, and
+the coverage/test plugins do not silently change when a new direct-tool release
+is published. This is not a complete lockfile: NumPy, build dependencies, and
+other transitive dependencies remain resolved from `pyproject.toml`. The
+project’s optional `dev` dependencies remain minimum-version requirements for
+ordinary local development. Contributors who use pre-commit can install it
+separately with `python -m pip install pre-commit`, run `pre-commit install`,
+and use the repository-wide Ruff hook before committing; that hook runs the
+same five paths listed above on every commit.
+
 ## mypy
 
 Strict mypy checks only `src/sdna`, the distributable library and its public
