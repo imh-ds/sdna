@@ -734,3 +734,43 @@ implementation consequence rather than silently changing an earlier record.
   `tools/summarize_cap_expansion.py`,
   `tests/test_cap_expansion_summary.py`, the hosted workflow, and the artifact
   checksums above when reproducing this record.
+
+## ADR-024 — Pre-specify a certification-usability audit before considering cap promotion
+
+- **Date:** 2026-09-14
+- **Decision:** Approve Task 25 as a diagnostic certification-usability study.
+  Begin with a read-only audit of the accepted Task 24 artifact, defining the
+  exact matched populations that were unreached at cap 2 and reached at cap 3
+  or cap 4. Run a separate instrumented paired rerun only when the existing
+  artifact cannot identify the certification bottleneck. Retain cap 2 as the
+  v0.1 production baseline throughout.
+- **Why this happened:** Task 24 demonstrated additional reach at caps 3 and
+  4, but its 44 cap-3 and 68 cap-4 newly reached rows were not certified. The
+  existing CSV records `not_certified` but does not record certification
+  combinations checked, budget exhaustion, or a dedicated failure reason.
+  More reached rows therefore cannot yet be treated as more usable evidence.
+- **Primary endpoint:** For each candidate cap `c` in `{3, 4}`, report
+  certification yield among the complete matched population
+  `U_to_R(c) = {baseline_cap2 unreached, cap-c reached}`. The denominator
+  includes downstream failures and is reported with exact row identities; no
+  missing or invalid result is converted to zero.
+- **Protocol constraints:** The conditional rerun must preserve the Task 24
+  matrix, data and child seeds, estimator, target `0.5`, certification budget
+  `1000`, calibration/tail treatment, Wald comparator, bootstrap procedure,
+  and 900-second ceiling. It may add only certification diagnostics. No cap
+  promotion, optimization, workload increase, unregistered threshold, or
+  independent pooling of audit and rerun results is authorized by this ADR.
+- **Design provenance:** The approved design was introduced in
+  `9c9d467748bfdc6636a59dc04af1f30e491c9565` and clarified for prior-stage
+  errors in `e2e8223f8fd9d076865ebfab26875fde933b9aa0`. The implementation plan
+  was introduced in
+  `7d0c1888486b86b6b89d79053d503d621d1957d5`.
+- **Files for independent review:**
+  `docs/superpowers/specs/2026-09-14-task25-certification-usability-audit-design.md`,
+  `docs/superpowers/plans/2026-09-14-task25-certification-usability-audit.md`,
+  `docs/methodology/cap_expansion_study_v1.md`,
+  `tools/run_cap_expansion.py`, `simulations/full_workflow.py`,
+  `tools/summarize_cap_expansion.py`, and
+  `docs/development/decisions.md`.
+- **Status:** Design and implementation plan committed; implementation,
+  hosted execution, and any resulting mechanism decision remain pending.
