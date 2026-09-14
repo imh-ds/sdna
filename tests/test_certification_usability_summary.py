@@ -1,5 +1,6 @@
 """Tests for certification-usability summaries and reference validation."""
 
+import importlib
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -11,7 +12,10 @@ from tools.summarize_certification_usability import (
     _validate_diagnostic_row,
     compare_instrumented_rows_to_reference,
     summarize_certification_usability,
+    validate_certification_usability,
 )
+
+summary_module = importlib.import_module("tools.summarize_certification_usability")
 
 SOURCE_MANIFEST_PATH = Path("simulations/configs/cap_expansion_v1.json")
 AUDIT_MANIFEST_PATH = Path("simulations/configs/certification_usability_v1.json")
@@ -176,3 +180,46 @@ def test_diagnostic_validator_rejects_inconsistent_row(field: str, value: object
             },
             1000,
         )
+
+
+def test_reference_validator_passes_source_manifest_path_to_cap_validator(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source_manifest = tmp_path / "cap-expansion.json"
+    audit_manifest = tmp_path / "certification-usability.json"
+    source_manifest.write_text("{}", encoding="utf-8")
+    audit_manifest.write_text("{}", encoding="utf-8")
+    for name in ("results.csv", "results.metadata.json", "summary.json"):
+        (tmp_path / name).write_text("{}", encoding="utf-8")
+    audit_config = {"source_results_sha256": "source-digest"}
+    manifest = {"expected_rows": 0}
+    expected_fields = summary_module.CAP_EXPANSION_FIELDNAMES + summary_module.CERTIFICATION_DIAGNOSTIC_FIELDNAMES
+    seen: list[object] = []
+
+    def fake_validate(*args: object) -> None:
+        seen.append(args[3])
+
+    monkeypatch.setattr(summary_module, "load_cap_expansion_manifest", lambda _: manifest)
+    monkeypatch.setattr(summary_module, "load_certification_usability_manifest", lambda _: audit_config)
+    monkeypatch.setattr(summary_module, "validate_cap_expansion", fake_validate)
+    monkeypatch.setattr(summary_module, "_sha256_file", lambda _: "source-digest")
+    monkeypatch.setattr(summary_module, "_read_rows", lambda _: (expected_fields, []))
+    monkeypatch.setattr(summary_module, "_validate_instrumented_rows", lambda *args: None)
+    monkeypatch.setattr(summary_module, "compare_instrumented_rows_to_reference", lambda *args: None)
+    monkeypatch.setattr(summary_module, "_validate_metadata", lambda *args: None)
+    monkeypatch.setattr(summary_module, "summarize_certification_usability", lambda *args: {})
+    monkeypatch.setattr(summary_module, "_metadata_provenance", lambda _: {})
+    monkeypatch.setattr(summary_module, "_summaries_match", lambda *args: True)
+
+    validate_certification_usability(
+        tmp_path / "results.csv",
+        tmp_path / "results.metadata.json",
+        tmp_path / "summary.json",
+        tmp_path / "source-results.csv",
+        tmp_path / "source-metadata.json",
+        tmp_path / "source-summary.json",
+        source_manifest,
+        audit_manifest,
+    )
+
+    assert seen == [source_manifest]

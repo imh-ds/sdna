@@ -512,7 +512,7 @@ def validate_certification_usability(
         source_results_csv,
         source_metadata_json,
         source_summary_json,
-        manifest,
+        source_manifest,
     )
     if _sha256_file(source_results_csv) != audit_config["source_results_sha256"]:
         raise ValueError("source results checksum does not match audit manifest")
