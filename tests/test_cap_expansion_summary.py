@@ -201,3 +201,16 @@ def test_cap_validator_accepts_valid_fixture(tmp_path: Path) -> None:
     results, metadata, summary, manifest = _write_valid_artifact_fixture(tmp_path)
 
     validate_cap_expansion(results, metadata, summary, manifest)
+
+
+def test_methodology_page_points_to_frozen_implementation_contract() -> None:
+    text = Path("docs/methodology/cap_expansion_study_v1.md").read_text(encoding="utf-8")
+
+    for required in (
+        "bb7a851",
+        "1,620",
+        "right-censored",
+        "jointly-valid",
+        "cap-expansion.yml",
+    ):
+        assert required in text

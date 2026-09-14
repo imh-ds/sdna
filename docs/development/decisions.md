@@ -597,6 +597,8 @@ implementation consequence rather than silently changing an earlier record.
   [`docs/superpowers/specs/2026-09-14-task24-cap-expansion-design.md`](../superpowers/specs/2026-09-14-task24-cap-expansion-design.md)
 - **Implementation plan:**
   [`docs/superpowers/plans/2026-09-14-task24-cap-expansion.md`](../superpowers/plans/2026-09-14-task24-cap-expansion.md)
+- **Canonical methodology page:**
+  [`docs/methodology/cap_expansion_study_v1.md`](../methodology/cap_expansion_study_v1.md)
 - **Independent-review files:**
   `simulations/configs/cap_expansion_v1.json`,
   `tools/cap_expansion_manifest.py`, `simulations/full_workflow.py`,
