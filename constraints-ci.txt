@@ -1,4 +1,5 @@
-# CI toolchain pins. Runtime dependencies remain resolved from pyproject.toml.
+# Direct CI quality-tool pins. This is not a full runtime/transitive lockfile;
+# runtime dependencies and build dependencies remain resolved from pyproject.toml.
 hypothesis==6.168.0
 mypy==2.3.1
 pytest==9.1.1

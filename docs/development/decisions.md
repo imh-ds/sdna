@@ -539,10 +539,28 @@ implementation consequence rather than silently changing an earlier record.
   gate. Floating CI tools also allow the quality gate to change without a
   repository commit. GitHub reported a non-blocking warning that the prior
   Actions versions targeted Node.js 20 and were being forced onto Node.js 24.
-- **Consequence:** CI quality gates are reproducible until the constraints are
-  intentionally updated, contributors have an opt-in local Ruff check, and
-  the Actions workflows no longer rely on the deprecated Node.js 20 runtime.
-  This is CI maintenance only; it does not change the estimator, simulation
-  matrix, or methodological claims.
+- **Consequence:** Direct CI quality-tool versions remain fixed until the
+  constraints are intentionally updated; runtime and transitive dependencies
+  remain resolver-controlled rather than being represented as fully locked.
+  Contributors have an opt-in local Ruff check, and the Actions workflows no
+  longer rely on the deprecated Node.js 20 runtime. This is CI maintenance
+  only; it does not change the estimator, simulation matrix, or methodological
+  claims.
 - **Status:** Implemented in the CI constraints, pre-commit configuration, and
   workflow files.
+
+## ADR-021 — Make the local Ruff hook match the CI scope
+
+- **Date:** 2026-09-13
+- **Decision:** Configure the optional pre-commit Ruff hook to run with
+  `pass_filenames: false`, `always_run: true`, and the same `src`, `tests`,
+  `simulations`, `benchmarks`, and `tools` paths used by the CI workflow.
+- **Rationale:** A default pre-commit hook checks only staged Python files and
+  therefore cannot catch an existing lint regression elsewhere in the
+  repository. The hook is intended as a local mirror of the CI Ruff gate, not
+  merely as a changed-file convenience.
+- **Consequence:** Every commit performs the repository-wide Ruff check. The
+  direct-tool constraints remain intentionally narrower than a complete
+  dependency lockfile, and that limitation is documented rather than hidden.
+- **Status:** Implemented in `.pre-commit-config.yaml` and the CI scope
+  documentation.
