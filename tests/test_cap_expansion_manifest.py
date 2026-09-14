@@ -55,6 +55,7 @@ def test_cap_expansion_manifest_pairs_each_key_across_all_arms() -> None:
     [
         ("expected_rows", 1619, "expected_rows"),
         ("version", 2, "version"),
+        ("seed", 20260911, "seed"),
     ],
 )
 def test_manifest_rejects_changed_frozen_values(

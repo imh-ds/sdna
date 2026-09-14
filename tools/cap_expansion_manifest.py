@@ -109,7 +109,8 @@ def load_cap_expansion_manifest(path: str | Path) -> dict[str, Any]:
     )
     if manifest.get("version") != 1:
         raise ValueError("version must be 1")
-    _require_int(manifest.get("seed"), "seed", minimum=0)
+    if manifest.get("seed") != 20260910:
+        raise ValueError("seed must be 20260910")
     if manifest.get("replications") != 10:
         raise ValueError("replications must be 10")
     if _require_positive_ints(manifest.get("n_values"), "n_values") != [50, 100, 150]:
