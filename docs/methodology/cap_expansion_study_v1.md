@@ -1,10 +1,10 @@
 # Paired full-workflow search-cap expansion study v1
 
-**Status:** Pre-specified and implemented on the Task 24 branch. Local
-validation is recorded provisionally in ADR-023; hosted validation remains
-pending the reviewed merge because the manual workflow must exist on the
-default branch before it can be dispatched. No cap-expansion result is
-accepted as hosted evidence by this document yet.
+**Status:** Pre-specified, implemented, and technically validated by hosted
+run [`34871220664`](https://github.com/imh-ds/sdna/actions/runs/34871220664)
+on merge commit `338b0d95cdb312b2805affb0de458e06508d80f0`. The hosted artifact
+is accepted as technical evidence for this study; it does not promote a cap
+or change the v0.1 production baseline.
 
 This page is the user-facing description of Task 24. The approved design
 specification is [`2026-09-14-task24-cap-expansion-design.md`](../superpowers/specs/2026-09-14-task24-cap-expansion-design.md),
@@ -97,7 +97,22 @@ and uploads the CSV, metadata, manifest, summaries, command record, and
 human-readable report. It is not a pull-request gate and has no weekly
 schedule.
 
-After execution, a decision-log entry will record the exact implementation
-commit, GitHub Actions run ID and commit, artifact name/checksum, transition
-and denominator findings, runtime/budget result, and the explicit decision to
-retain cap 2 or pursue a separately approved change.
+The confirmed hosted run produced 1,620 rows (540 per arm) in 370.44 seconds,
+under the 900-second ceiling. It reported 964 reached and 656 unreached
+fragility rows; 852 certified, 112 not certified, and 656 skipped-as-unreached
+rows; and 462 finite, 502 right-censored, and 656 observed-unreached
+calibration rows. The artifact checksums are:
+
+| File | SHA-256 |
+| --- | --- |
+| `results.csv` | `110d0b4f266b253251ac1a64bb4195b61722008d426b74c75802d3de57b43d87` |
+| `summary.json` | `6695edf0cabcf02dc9f74b541302b4134266ad8f6eeaa80f8a2e4c2c63c3a717` |
+| `summary.md` | `faefe202925f2ad2594c963d8517cb0cf446c47fd223f75f4e0d17f03b5bcee1` |
+
+The paired transitions from cap 2 were 44 unreached-to-reached rows for cap
+3 and 68 for cap 4, with no reached-to-unreached rows. Those newly reached
+rows were not certified. Therefore cap 2 remains the v0.1 production
+baseline, while caps 3 and 4 remain diagnostic sensitivity arms. The complete
+decision, provenance, and cross-runtime validator correction are recorded in
+[`docs/development/decisions.md`](../development/decisions.md), including the
+follow-up validator commit `785761a` and its regression coverage.
