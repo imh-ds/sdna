@@ -225,6 +225,22 @@ def test_cap_validator_accepts_valid_fixture(tmp_path: Path) -> None:
     validate_cap_expansion(results, metadata, summary, manifest)
 
 
+def test_cap_validator_tolerates_cross_runtime_float_rounding(tmp_path: Path) -> None:
+    results, metadata, summary, manifest = _write_valid_artifact_fixture(tmp_path)
+    summary_data = json.loads(summary.read_text(encoding="utf-8"))
+    summary_data["arms"]["baseline_cap2"]["pooled_metrics"]["summary"]["scenarios"][
+        "clean_planted_edge"
+    ]["mean_observed_rho"] += 1e-13
+    summary.write_text(json.dumps(summary_data), encoding="utf-8")
+    metadata_data = json.loads(metadata.read_text(encoding="utf-8"))
+    metadata_data["artifact_checksums"]["summary_json"] = hashlib.sha256(
+        summary.read_bytes()
+    ).hexdigest()
+    metadata.write_text(json.dumps(metadata_data), encoding="utf-8")
+
+    validate_cap_expansion(results, metadata, summary, manifest)
+
+
 def test_cap_summary_distinguishes_unreached_and_right_censored_rows() -> None:
     manifest = load_cap_expansion_manifest(MANIFEST_PATH)
     summary = summarize_cap_expansion_rows(hand_computable_cap_rows(), manifest)

@@ -692,3 +692,45 @@ implementation consequence rather than silently changing an earlier record.
   matrices is explicit: validation checks lowercase SHA-256 format and paired
   equality, while `tools/run_cap_expansion.py` computes the digest from the
   generated dataset.
+
+### ADR-023 follow-up — Hosted cap-expansion confirmation and cross-runtime validator correction
+
+- **Date:** 2026-09-14
+- **Hosted execution:** The reviewed Task 24 merge landed as commit
+  `338b0d95cdb312b2805affb0de458e06508d80f0`. Manual GitHub Actions run
+  [`34871220664`](https://github.com/imh-ds/sdna/actions/runs/34871220664)
+  completed successfully on that commit using Python 3.11.16. The uploaded
+  artifact is `sdna-cap-expansion-34871220664`.
+- **Hosted artifact checksums:** `results.csv` is
+  `110d0b4f266b253251ac1a64bb4195b61722008d426b74c75802d3de57b43d87`,
+  `summary.json` is
+  `6695edf0cabcf02dc9f74b541302b4134266ad8f6eeaa80f8a2e4c2c63c3a717`, and
+  `summary.md` is
+  `faefe202925f2ad2594c963d8517cb0cf446c47fd223f75f4e0d17f03b5bcee1`.
+- **Hosted evidence:** The run produced 1,620 rows (540 per arm), completed
+  in 370.44 seconds under the 900-second ceiling, and reported no budget
+  exceedance. Fragility statuses were 964 reached and 656 unreached;
+  certification statuses were 852 certified, 112 not certified, and 656
+  skipped as unreached; calibration statuses were 462 finite, 502
+  right-censored, and 656 observed-unreached; Wald and bootstrap completed for
+  all 1,620 rows. Relative to cap 2, cap 3 had 284 reached-to-reached, 44
+  unreached-to-reached, 212 unreached-to-unreached, and 0 reached-to-unreached
+  pairs; cap 4 had 284, 68, 188, and 0 respectively. The 44 and 68 newly
+  reached rows were not certified, so cap 2 remains the v0.1 production
+  baseline and caps 3/4 remain diagnostic sensitivity arms.
+- **Cross-runtime correction:** Revalidating the downloaded hosted artifact
+  under Python 3.12 initially exposed exact-JSON comparison failures at about
+  `1e-16` in floating-point summary values, despite identical rows, seeds,
+  checksums, statuses, and scientific calculations. Commit
+  `785761a` (`fix: tolerate cross-runtime summary rounding`) changed
+  `tools/summarize_cap_expansion.py` to require identical summary structure and
+  keys while comparing numeric leaves with a tight `1e-12` tolerance. The
+  regression test in `tests/test_cap_expansion_summary.py` proves that this
+  narrow runtime-rounding tolerance is accepted; checksum, semantic-status,
+  deterministic-seed, and substantive summary-tampering checks remain strict.
+  The hosted artifact then passed local revalidation under Python 3.12.1.
+- **Interpretation:** The correction changes validator portability only; it does
+  not alter the hosted results or cap decision. Investigators should inspect
+  `tools/summarize_cap_expansion.py`,
+  `tests/test_cap_expansion_summary.py`, the hosted workflow, and the artifact
+  checksums above when reproducing this record.
