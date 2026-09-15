@@ -20,6 +20,9 @@ from tools.certification_budget_sensitivity_manifest import (
 from tools.prepare_certification_budget_sensitivity import build_selection_manifest
 from tools.run_certification_budget_sensitivity import SENSITIVITY_FIELDNAMES
 from tools.summarize_certification_budget_sensitivity import (
+    _required_exact_nonnegative_int,
+    _required_finite_float,
+    _required_nonnegative_int,
     aggregate_certification_budget_arms,
     main,
     summarize_certification_budget_arm,
@@ -28,6 +31,21 @@ from tools.summarize_certification_budget_sensitivity import (
 
 STUDY_MANIFEST_PATH = Path("simulations/configs/certification_budget_sensitivity_v1.json")
 STUDY_MANIFEST = load_certification_budget_sensitivity_manifest(STUDY_MANIFEST_PATH)
+
+
+@pytest.mark.parametrize(
+    ("validator", "value"),
+    [
+        (_required_nonnegative_int, object()),
+        (_required_exact_nonnegative_int, True),
+        (_required_finite_float, object()),
+    ],
+)
+def test_numeric_field_validators_raise_type_error_for_wrong_python_types(
+    validator: Any, value: object
+) -> None:
+    with pytest.raises(TypeError, match="field"):
+        validator(value, "field")
 
 
 def _sha256(path: Path) -> str:

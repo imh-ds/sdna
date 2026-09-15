@@ -15,7 +15,6 @@ from tools.certification_budget_sensitivity_manifest import (
     certification_budget_sensitivity_manifest_checksum,
     load_certification_budget_sensitivity_manifest,
 )
-
 from tools.prepare_certification_budget_sensitivity import (
     build_selection_manifest,
     load_selection_manifest,

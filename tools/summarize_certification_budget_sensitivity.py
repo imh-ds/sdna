@@ -115,7 +115,7 @@ def _optional_bool(value: object) -> bool | None:
 
 def _required_nonnegative_int(value: object, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, (str, int, float)):
-        raise ValueError(f"{field} must be a nonnegative integer")
+        raise TypeError(f"{field} must be a nonnegative integer")
     try:
         parsed = int(value)
     except (TypeError, ValueError) as error:
@@ -127,7 +127,7 @@ def _required_nonnegative_int(value: object, field: str) -> int:
 
 def _required_exact_nonnegative_int(value: object, field: str) -> int:
     if isinstance(value, bool):
-        raise ValueError(f"{field} must be a nonnegative integer")
+        raise TypeError(f"{field} must be a nonnegative integer")
     try:
         parsed = int(str(value))
     except (TypeError, ValueError) as error:
@@ -139,7 +139,7 @@ def _required_exact_nonnegative_int(value: object, field: str) -> int:
 
 def _required_finite_float(value: object, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (str, int, float)):
-        raise ValueError(f"{field} must be finite")
+        raise TypeError(f"{field} must be finite")
     try:
         parsed = float(value)
     except (TypeError, ValueError) as error:
