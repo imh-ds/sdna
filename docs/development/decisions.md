@@ -933,8 +933,8 @@ implementation consequence rather than silently changing an earlier record.
   `810e57cd353426d6ebdb82f1c642088a9c75e2f6` (`docs: specify certification
   budget sensitivity study`); plan commit
   `80fbf44469656f8fa33663f2b47384d080fff238` (`docs: add certification budget
-  sensitivity implementation plan`). Every implementation commit through this
-  task's base is `9fb6f20f1e573025a92ebc04d869a66aa4205507` (manifest),
+  sensitivity implementation plan`). Core implementation commits through
+  Task 4 are `9fb6f20f1e573025a92ebc04d869a66aa4205507` (manifest),
   `164076bea1d7e5941dc6f6c02768513aae7bdee3` (runner),
   `7e011d2a0ca1d1f38b092c10991e0b74778ef912` (runner fix),
   `7b69682f0180a72eacaf49f81e68638276b20597` (summary),
@@ -942,10 +942,44 @@ implementation consequence rather than silently changing an earlier record.
   `3eff95de9bb7ce5ea2ec54b643d5bde130e47251` (minimum bound),
   `a06d34622b15978ffe54e0235e42ad87c9dbd871` (manual workflow), and
   `5d818524d6c561644a4b48bf5becaa28f925f560` (cancellation handling).
+- **Task 5 and local-verification commits:** Task 5 documentation commits are
+  `a32c5ddc669e98e075f1a979cf20fc0349928e86` (methodology and ADR) and
+  `f5cfcc858ac3877afe0a0b2f615f87d62bbee9b9` (explicit selection rule).
+  Task 6 local-verification preparation is
+  `542ac1c6a27158155cae843150a6d8e6fd999bd4` (ignore generated artifacts and
+  correct the pre-existing audit-test import order).
+- **Task 6 local acceptance:** On 2026-09-15, all 91 focused Task 26 tests
+  passed, the complete suite passed (259 tests), repository Ruff passed,
+  `compileall` passed, and the Task 25 audit-test module passed (6 tests). The
+  installed environment is Python 3.12.14 with NumPy 2.5.1 and mypy 2.2.0,
+  while `constraints-ci.txt` pins mypy 2.3.1. Configured `mypy src/sdna`
+  targets Python 3.11 and stops parsing NumPy's Python-3.12 `type` aliases;
+  the same installed mypy succeeds with `--python-version 3.12`. This is a
+  local interpreter/dependency-stub mismatch, not a passing Python 3.11
+  check. CI/hosted verification must use its actual Python 3.11 environment.
+- **Synthetic end-to-end rehearsal:** `.task26-artifacts/local-rehearsal/`
+  contains the local report and arm/aggregate outputs. The mocked four-arm
+  run validated 16 unique `(pairing_key, candidate_cap, budget)` rows, kept
+  the overlapping key in both cap populations, and changed only certification
+  diagnostics across budgets. The report SHA-256 is
+  `7d4d2b891f03e3002ecc51ebbd77b301d539c01b753f448d30cbb1039c0b709b`; the
+  rehearsal script SHA-256 is
+  `7d6c7d00d8aeec7798a88b082a60faf280302e1fba2dc09a9be8ae784b9f0f4a`.
+  This is workflow rehearsal evidence, not Task 26 empirical evidence.
+  Pre-existing untracked pytest
+  fixture-output directories from Tasks 2–4 were preserved and not staged;
+  tracked changes were clean before this decision-log update.
+- **Dispatch gate:** At the end of local acceptance, the GitHub repository's
+  default branch was `main`, and its registered workflow list did not include
+  `certification-budget-sensitivity.yml`. No hosted run was dispatched.
+  GitHub requires a `workflow_dispatch` workflow file to exist on the default
+  branch before it can receive a manual event; reviewed integration of this
+  branch is therefore required before dispatch.
 - **Hosted execution fields:** Hosted Actions run ID, dispatched commit,
   artifact names and SHA-256 checksums, runtime, per-arm statuses, yields,
-  reason counts, and acceptance finding are **pending**. The workflow has not
-  been dispatched; record them only after manual execution and validation.
+  reason counts, and acceptance finding are **pending**. Record them only
+  after the default-branch workflow has been manually dispatched and its
+  artifacts validated.
 - **Files for independent review:**
   `docs/superpowers/specs/2026-09-14-task26-certification-budget-sensitivity-design.md`,
   `docs/superpowers/plans/2026-09-14-task26-certification-budget-sensitivity.md`,
@@ -961,6 +995,8 @@ implementation consequence rather than silently changing an earlier record.
   `tests/test_certification_budget_sensitivity_workflow.py`,
   `.github/workflows/certification-budget-sensitivity.yml`,
   `docs/methodology/certification_budget_sensitivity_study_v1.md`, and
-  `docs/development/decisions.md`.
+  `docs/development/decisions.md`. Task 6's local verification support also
+  changes `.gitignore` and the import order in
+  `tests/test_certification_usability_audit.py`.
 - **Status:** Protocol and traceability are committed before hosted execution;
   Task 26 empirical evidence remains pending.
