@@ -100,7 +100,10 @@ def _source_row(
         "arm": arm,
         "scenario": scenario,
         "parameter_id": str(parameter_id),
-        "parameter": "0.2",
+        "parameter": {
+            "clean_planted_edge": "0.2",
+            "coalition_contamination": "3",
+        }.get(scenario, ""),
         "replication": str(replication),
         "N": str(n),
         "p": str(p),
@@ -236,7 +239,10 @@ def test_runner_uses_one_dataset_per_pair_and_records_requested_budget(
             isinstance(job[field], int)
             for field in ("parameter_id", "replication", "N", "p", "search_cap")
         )
-        assert isinstance(job["parameter"], float)
+        if job["scenario"] in {"clean_planted_edge", "coalition_contamination"}:
+            assert isinstance(job["parameter"], float)
+        else:
+            assert job["parameter"] is None
         assert isinstance(job["target"], float)
     source_candidates = [
         entry["candidate"]
