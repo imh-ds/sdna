@@ -74,11 +74,17 @@ _STAGE_STATUS_FIELDS = (
 
 
 def _canonical_job(candidate: dict[str, Any]) -> dict[str, Any]:
+    scenario = str(candidate["scenario"])
+    parameter = (
+        float(candidate["parameter"])
+        if scenario in {"clean_planted_edge", "coalition_contamination"}
+        else None
+    )
     return {
         "arm": str(candidate["arm"]),
-        "scenario": str(candidate["scenario"]),
+        "scenario": scenario,
         "parameter_id": int(candidate["parameter_id"]),
-        "parameter": float(candidate["parameter"]),
+        "parameter": parameter,
         "replication": int(candidate["replication"]),
         "N": int(candidate["N"]),
         "p": int(candidate["p"]),
