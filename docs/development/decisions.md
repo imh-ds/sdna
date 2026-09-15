@@ -959,7 +959,7 @@ implementation consequence rather than silently changing an earlier record.
   `tests/test_certification_budget_sensitivity_runner.py`,
   `tests/test_certification_budget_sensitivity_summary.py`,
   `tests/test_certification_budget_sensitivity_workflow.py`,
-  `.github/workflows/certification-budget-sensitivity.yml`, and
+  `.github/workflows/certification-budget-sensitivity.yml`,
   `docs/methodology/certification_budget_sensitivity_study_v1.md`, and
   `docs/development/decisions.md`.
 - **Status:** Protocol and traceability are committed before hosted execution;

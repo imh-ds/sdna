@@ -39,8 +39,10 @@ That value is the nested Task 24 manifest checksum, not the Task 25 checksum.
 The selected populations contain 44 cap-3 records (`U_to_R(3)=44`) and 68
 cap-4 records (`U_to_R(4)=68`). Their denominators remain separate even when
 a pairing key is in the overlap; this is not a claim of 112 unique keys. The
-unchanged production baseline is cap 2, is not rerun, and is outside the
-budget comparison.
+selection rule is exactly Task 25's cap-specific newly reached population,
+identified by its canonical pairing keys. No rows are added or removed by
+downstream status or post-hoc filtering. The unchanged production baseline is
+cap 2, is not rerun, and is outside the budget comparison.
 
 ## Fixed sensitivity protocol
 

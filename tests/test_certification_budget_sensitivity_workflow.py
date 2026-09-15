@@ -71,6 +71,7 @@ def test_methodology_pre_specifies_the_budget_sensitivity_contract() -> None:
     for required in (
         "U_to_R(3)=44",
         "U_to_R(4)=68",
+        "post-hoc filtering",
         "[1000, 5000, 10000, 20000]",
         "1800",
         "timeout",
