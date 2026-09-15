@@ -1000,3 +1000,101 @@ implementation consequence rather than silently changing an earlier record.
   `tests/test_certification_usability_audit.py`.
 - **Status:** Protocol and traceability are committed before hosted execution;
   Task 26 empirical evidence remains pending.
+
+### ADR-025 Task 6 hosted acceptance addendum — 2026-09-15
+
+- **Decision:** Accept Task 26's corrected hosted run `35015629850` as the
+  Task 6 evidence run. Preserve the v1 protocol and its fixed source population,
+  budget grid, and analysis; report execution/results in
+  `docs/methodology/certification_budget_sensitivity_study_v2.md`. The earlier
+  pending fields in this ADR record the pre-dispatch state and are superseded
+  by this append-only addendum.
+- **Accepted implementation:** Task 26 was merged by PR #20 as
+  `423600357c9f9ac765be962d1bd8e14789e608fe`. Its first hosted attempt,
+  `35014406444`, failed and is not empirical evidence. The correction was
+  committed as `defeabf8c5a5bc3d0a01e97716ebb7297a134aeb`, reviewed and merged
+  by PR #21 as `225aabe2a757a01720c00ec05f307219e930afad`. The accepted run is
+  on `main` at that exact merge commit. Both PRs' required Python 3.11, 3.12,
+  and 3.13 Actions checks and simulation smoke tests passed; the post-merge
+  main checks after PR #21 also passed.
+- **Why the first run failed:** Task 25 serializes an empty `parameter` field
+  for scenarios whose DGP has no scenario-specific numeric parameter, such as
+  `heavy_tails`. Task 26's `_canonical_job` in
+  `tools/run_certification_budget_sensitivity.py` unconditionally called
+  `float(candidate["parameter"])`. All four budget arms therefore stopped on
+  the same selected row with `ValueError: could not convert string to float:
+  ''`; each retained five rows, and the aggregate correctly failed its
+  completeness gate. The source value was valid and intentionally empty; it
+  did not indicate a missing DGP setting.
+- **Correction and ruling:** Convert the parameter only for
+  `clean_planted_edge` and `coalition_contamination`; preserve `None` for other
+  scenarios, matching Task 24's scenario-parameter contract. Do not fill the
+  field with zero or reselect/rewrite source rows: either would alter the DGP
+  or selection semantics. The regression fixture in
+  `tests/test_certification_budget_sensitivity_runner.py` now uses the source
+  representation for parameterized and unparameterized scenarios. This fix
+  changed no manifest, seed, selection, estimand, or protocol constant.
+- **Local verification:** After the correction, all 262 tests passed; Ruff and
+  strict mypy passed. A real local 1,000-budget arm against the frozen hosted
+  selection completed and validated 112/112 rows (44 cap 3, 68 cap 4) in
+  66.59 seconds. This was a pre-merge implementation check; the accepted
+  empirical results are from the hosted run below.
+- **Accepted hosted evidence:** Run
+  [35015629850](https://github.com/imh-ds/sdna/actions/runs/35015629850)
+  completed successfully on 2026-09-15. Python was 3.11.16, NumPy 2.4.6,
+  package version 0.1.0a0, Linux x86-64. Task 25 run `34895397606` had results
+  SHA-256 `4ec0068d8fe2b2b62df45fccbbf71f884c50589e319e48c3a2400111ae051918`
+  and manifest checksum
+  `b47842e33092b9431220204f46c77723f2465f86a1685e1cd1c90e601bedd4ff`.
+  Nested Task 24 run `34871220664` had results SHA-256
+  `110d0b4f266b253251ac1a64bb4195b61722008d426b74c75802d3de57b43d87` and
+  manifest checksum
+  `415576f1fec5ccd2a47e0ad411d29e4d48c6e8e370609ae495ccc877fe74e974`.
+  The accepted selection checksum is
+  `125f5dc52e6669c36c2f095759a24324e55dee504b23429ed9d721c95ee55b23`.
+- **Outcome:** All four budget arms were complete and valid with 112 rows
+  each; all 448 aggregate rows were present. Each row was either certified or
+  had valid row-level budget exhaustion; there were no row workflow errors,
+  arm failures, timeouts, or incomplete arms. Totals were 196 certified and
+  252 exhausted rows. Cap-3 yields at budgets 1k/5k/10k/20k were
+  `0/44`, `18/44`, `36/44`, and `44/44`; cap-4 yields were `0/68`, `18/68`,
+  `36/68`, and `44/68`. The 44 overlap keys had zero cap-3/cap-4 certification
+  disagreements at each budget; the additional 24 cap-4 keys did not certify
+  in the tested grid. These are conditional descriptive results for the exact
+  Task 25-selected population, not a fresh-sample estimate, cap promotion, or
+  production-budget decision. At 20,000, 24 cap-4 rows still exhausted their
+  budget.
+- **Practical runtime ruling:** Runner times were 36.84, 49.17, 81.62, and
+  64.15 seconds for 1k/5k/10k/20k respectively; complete Actions wall time was
+  2m41s. The longest arm used about 4.5% of its 1,800-second computation
+  ceiling. The committed v0.1 workload therefore does not justify
+  optimization before expansion. This observed runtime must not be generalized
+  to larger populations or new scenarios. Any expanded budget grid or
+  optimization experiment requires a new pre-specification.
+- **Artifacts and hashes:** The retained artifact names are
+  `sdna-certification-budget-sensitivity-35015629850`,
+  `sdna-certification-budget-selection-35015629850`, and
+  `sdna-certification-budget-arm-{1000,5000,10000,20000}-35015629850`.
+  Aggregate `results.csv` SHA-256 is
+  `92d0324dea5ec018b806dcfdea91cae689dbd9b1a29040342d27de4b680aff21`;
+  `summary.json` is
+  `7b7e88e8312ab3c09a59606b050567a8b9b2ae44c8efe7fb720809fc7ba7f173`;
+  `summary.md` is
+  `8f61511b4fd44f2ad63094ef2dcb1b026c672e93302d5177ab473de895f3a8f2`.
+  The v2 report records the aggregate selection/status hashes and the
+  per-budget results, metadata, status, and validation hashes. All recorded
+  hashes were independently matched to downloaded artifacts.
+- **Files for independent review:**
+  `tools/run_certification_budget_sensitivity.py` and
+  `tests/test_certification_budget_sensitivity_runner.py` (root cause and
+  regression); `tools/prepare_certification_budget_sensitivity.py` and
+  `simulations/configs/certification_budget_sensitivity_v1.json` (fixed
+  selection and protocol); `tools/summarize_certification_budget_sensitivity.py`
+  and `tests/test_certification_budget_sensitivity_summary.py` (artifact
+  validation and denominators); `.github/workflows/certification-budget-sensitivity.yml`
+  (manual run and retained outputs); the frozen v1 protocol; this v2 report;
+  and the artifacts listed above. The first failed-run artifact is
+  `sdna-certification-budget-sensitivity-35014406444` from run `35014406444`.
+- **Status:** Task 26 Task 6 hosted acceptance is complete. The v1 protocol is
+  unchanged; the empirical record is in the v2 report. Current production cap
+  2 and its budget remain unchanged.
