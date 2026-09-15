@@ -1,0 +1,252 @@
+name: SDNA certification-budget sensitivity study
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    name: Prepare pinned Task 26 selection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]" -c constraints-ci.txt
+
+      - name: Prepare selection directory and provenance
+        env:
+          PREPARATION_DIR: ${{ runner.temp }}/sdna-certification-budget-selection
+          TASK25_DIR: ${{ runner.temp }}/sdna-certification-budget-selection/task25
+        run: |
+          mkdir -p "$PREPARATION_DIR" "$TASK25_DIR"
+          cp simulations/configs/cap_expansion_v1.json "$PREPARATION_DIR/cap_expansion_v1.json"
+          cp simulations/configs/certification_usability_v1.json "$PREPARATION_DIR/certification_usability_v1.json"
+          cp simulations/configs/certification_budget_sensitivity_v1.json "$PREPARATION_DIR/certification_budget_sensitivity_v1.json"
+          {
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "event=$GITHUB_EVENT_NAME"
+            echo "ref=$GITHUB_REF"
+            echo "sha=$GITHUB_SHA"
+          } > "$PREPARATION_DIR/github-run.txt"
+          {
+            echo "gh run download 34895397606 --repo $GITHUB_REPOSITORY --name sdna-certification-usability-34895397606 --dir $TASK25_DIR"
+            echo "python -m tools.prepare_certification_budget_sensitivity task25/results.csv task25/results.metadata.json task25/summary.json task25/reference/results.csv task25/reference/results.metadata.json task25/reference/summary.json simulations/configs/cap_expansion_v1.json simulations/configs/certification_usability_v1.json simulations/configs/certification_budget_sensitivity_v1.json selection_manifest.json"
+          } > "$PREPARATION_DIR/commands.txt"
+
+      - name: Download accepted Task 25 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TASK25_DIR: ${{ runner.temp }}/sdna-certification-budget-selection/task25
+        run: >-
+          gh run download 34895397606
+          --repo "$GITHUB_REPOSITORY"
+          --name sdna-certification-usability-34895397606
+          --dir "$TASK25_DIR"
+
+      - name: Validate pinned evidence and prepare selection manifest
+        continue-on-error: true
+        env:
+          PREPARATION_DIR: ${{ runner.temp }}/sdna-certification-budget-selection
+          TASK25_DIR: ${{ runner.temp }}/sdna-certification-budget-selection/task25
+        run: >-
+          python -m tools.prepare_certification_budget_sensitivity
+          "$TASK25_DIR/results.csv"
+          "$TASK25_DIR/results.metadata.json"
+          "$TASK25_DIR/summary.json"
+          "$TASK25_DIR/reference/results.csv"
+          "$TASK25_DIR/reference/results.metadata.json"
+          "$TASK25_DIR/reference/summary.json"
+          simulations/configs/cap_expansion_v1.json
+          simulations/configs/certification_usability_v1.json
+          simulations/configs/certification_budget_sensitivity_v1.json
+          "$PREPARATION_DIR/selection_manifest.json"
+
+      - name: Upload selection preparation evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: sdna-certification-budget-selection-${{ github.run_id }}
+          path: ${{ runner.temp }}/sdna-certification-budget-selection
+          if-no-files-found: error
+          retention-days: 90
+
+  run-budget:
+    name: Run certification budget ${{ matrix.budget }}
+    needs: prepare
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        budget: [1000, 5000, 10000, 20000]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]" -c constraints-ci.txt
+
+      - name: Prepare isolated arm directory
+        env:
+          ARM_DIR: ${{ runner.temp }}/sdna-certification-budget-arms/${{ matrix.budget }}
+        run: |
+          mkdir -p "$ARM_DIR"
+          {
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "budget=${{ matrix.budget }}"
+            echo "sha=$GITHUB_SHA"
+          } > "$ARM_DIR/environment.txt"
+
+      - name: Download prepared selection artifact
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREPARATION_DIR: ${{ runner.temp }}/sdna-certification-budget-preparation
+        run: >-
+          gh run download "$GITHUB_RUN_ID"
+          --repo "$GITHUB_REPOSITORY"
+          --name "sdna-certification-budget-selection-$GITHUB_RUN_ID"
+          --dir "$PREPARATION_DIR"
+
+      - name: Run fixed certification budget
+        continue-on-error: true
+        env:
+          ARM_DIR: ${{ runner.temp }}/sdna-certification-budget-arms/${{ matrix.budget }}
+          PREPARATION_DIR: ${{ runner.temp }}/sdna-certification-budget-preparation
+        run: |
+          if [ ! -f "$PREPARATION_DIR/selection_manifest.json" ]; then
+            echo "selection manifest is unavailable; arm was not run" > "$ARM_DIR/no-selection-diagnostic.txt"
+            exit 1
+          fi
+          cp "$PREPARATION_DIR/selection_manifest.json" "$ARM_DIR/selection_manifest.json"
+          python -m tools.run_certification_budget_sensitivity \
+            "$PREPARATION_DIR/selection_manifest.json" \
+            simulations/configs/cap_expansion_v1.json \
+            simulations/configs/certification_budget_sensitivity_v1.json \
+            "${{ matrix.budget }}" \
+            "$ARM_DIR"
+
+      - name: Validate fixed-budget arm
+        if: always()
+        continue-on-error: true
+        env:
+          ARM_DIR: ${{ runner.temp }}/sdna-certification-budget-arms/${{ matrix.budget }}
+          PREPARATION_DIR: ${{ runner.temp }}/sdna-certification-budget-preparation
+        run: >-
+          python -m tools.summarize_certification_budget_sensitivity validate
+          "$ARM_DIR"
+          "$PREPARATION_DIR/selection_manifest.json"
+          simulations/configs/certification_budget_sensitivity_v1.json
+
+      - name: Upload fixed-budget arm evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: sdna-certification-budget-arm-${{ matrix.budget }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/sdna-certification-budget-arms/${{ matrix.budget }}
+          if-no-files-found: error
+          retention-days: 90
+
+  aggregate:
+    name: Aggregate certification budget sensitivity evidence
+    needs: [prepare, run-budget]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]" -c constraints-ci.txt
+
+      - name: Prepare aggregate directories
+        env:
+          AGGREGATE_DIR: ${{ runner.temp }}/sdna-certification-budget-aggregate
+          ARMS_DIR: ${{ runner.temp }}/sdna-certification-budget-downloaded-arms
+          PREPARATION_DIR: ${{ runner.temp }}/sdna-certification-budget-preparation
+        run: mkdir -p "$AGGREGATE_DIR" "$ARMS_DIR" "$PREPARATION_DIR"
+
+      - name: Download preparation and isolated arm artifacts
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGGREGATE_DIR: ${{ runner.temp }}/sdna-certification-budget-aggregate
+          ARMS_DIR: ${{ runner.temp }}/sdna-certification-budget-downloaded-arms
+          PREPARATION_DIR: ${{ runner.temp }}/sdna-certification-budget-preparation
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "sdna-certification-budget-selection-$GITHUB_RUN_ID" --dir "$PREPARATION_DIR" || true
+          for budget in 1000 5000 10000 20000; do
+            staging_dir="$(mktemp -d)"
+            if gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --name "sdna-certification-budget-arm-$budget-$GITHUB_RUN_ID" \
+              --dir "$staging_dir"; then
+              mv "$staging_dir" "$ARMS_DIR/$budget"
+            else
+              echo "Arm artifact for budget $budget was unavailable." > "$AGGREGATE_DIR/missing-arm-$budget.txt"
+            fi
+          done
+
+      - name: Aggregate available fixed-budget evidence
+        if: always()
+        continue-on-error: true
+        env:
+          AGGREGATE_DIR: ${{ runner.temp }}/sdna-certification-budget-aggregate
+          ARMS_DIR: ${{ runner.temp }}/sdna-certification-budget-downloaded-arms
+          PREPARATION_DIR: ${{ runner.temp }}/sdna-certification-budget-preparation
+        run: |
+          if [ ! -f "$PREPARATION_DIR/selection_manifest.json" ]; then
+            echo "Selection manifest is unavailable; aggregate CLI was not invoked." > "$AGGREGATE_DIR/no-selection-diagnostic.txt"
+            exit 1
+          fi
+          python -m tools.summarize_certification_budget_sensitivity aggregate \
+            "$PREPARATION_DIR/selection_manifest.json" \
+            "$ARMS_DIR" \
+            simulations/configs/certification_budget_sensitivity_v1.json \
+            "$AGGREGATE_DIR"
+
+      - name: Upload combined and diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: sdna-certification-budget-sensitivity-${{ github.run_id }}
+          path: ${{ runner.temp }}/sdna-certification-budget-aggregate
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce complete sensitivity result after upload
+        if: always()
+        env:
+          AGGREGATE_DIR: ${{ runner.temp }}/sdna-certification-budget-aggregate
+        run: >-
+          python -c "import json; from pathlib import Path; summary = Path('$AGGREGATE_DIR/summary.json'); raise SystemExit(0 if summary.is_file() and json.loads(summary.read_text(encoding='utf-8')).get('complete_sensitivity_result') is True else 1)"
