@@ -262,6 +262,11 @@ def _write_arm(
 def _resign_arm(arm_dir: Path, rows: list[dict[str, Any]]) -> None:
     results = arm_dir / "results.csv"
     _write_csv(results, rows)
+    _resign_arm_artifacts(arm_dir)
+
+
+def _resign_arm_artifacts(arm_dir: Path) -> None:
+    results = arm_dir / "results.csv"
     metadata_path = arm_dir / "results.metadata.json"
     status_path = arm_dir / "arm_status.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -353,6 +358,102 @@ def test_validator_accepts_structurally_valid_timeout_without_yield(
     assert report["complete"] is False
     assert report["arm_status"] == "timeout"
     assert report["summary"]["populations"]["cap3"]["certification_yield"] is None
+
+
+def test_validator_accepts_full_row_incomplete_checkpoint_without_yield(
+    tmp_path: Path, selection: dict[str, Any]
+) -> None:
+    selection_path = _write_selection(tmp_path, selection)
+    arm_dir = _write_arm(tmp_path / "arms", selection, 5000, arm_status="incomplete")
+
+    report = validate_certification_budget_arm(arm_dir, selection_path, STUDY_MANIFEST_PATH)
+
+    assert report["valid"] is True
+    assert report["complete"] is False
+    assert report["arm_status"] == "incomplete"
+    assert report["rows"] == 112
+    assert report["observed_cap_rows"] == {"cap3": 44, "cap4": 68}
+    assert report["summary"]["populations"]["cap3"]["rows"] == 44
+    assert report["summary"]["populations"]["cap4"]["rows"] == 68
+    assert report["summary"]["populations"]["cap3"]["certification_yield"] is None
+    assert report["summary"]["populations"]["cap4"]["certification_yield"] is None
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {
+            "certification_status": "certified",
+            "certified": False,
+            "exact_fragility_50": "garbage",
+        },
+        {
+            "certification_status": "certified",
+            "certified": True,
+            "exact_fragility_50": "3.0",
+        },
+        {
+            "certification_status": "not_certified",
+            "certified": True,
+            "exact_fragility_50": None,
+            "certification_failure_reason": "not_certified_other",
+        },
+        {
+            "certification_status": "not_certified",
+            "certified": False,
+            "exact_fragility_50": 3,
+            "certification_failure_reason": "not_certified_other",
+        },
+        {
+            "certification_status": "error",
+            "certified": False,
+            "exact_fragility_50": None,
+            "certification_failure_reason": "error",
+        },
+        {
+            "certification_status": "error",
+            "certified": None,
+            "exact_fragility_50": 3,
+            "certification_failure_reason": "error",
+        },
+    ],
+)
+def test_validator_rejects_inconsistent_certification_outcomes(
+    tmp_path: Path,
+    selection: dict[str, Any],
+    updates: dict[str, Any],
+) -> None:
+    selection_path = _write_selection(tmp_path, selection)
+    arm_dir = _write_arm(tmp_path / "arms", selection, 10000)
+    rows = _arm_rows(selection, 10000)
+    rows[0].update(updates)
+    _resign_arm(arm_dir, rows)
+
+    report = validate_certification_budget_arm(arm_dir, selection_path, STUDY_MANIFEST_PATH)
+
+    assert report["valid"] is False
+    assert "certification outcome" in report["error_message"]
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["data_seed", "calibration_seed", "bootstrap_seed"],
+)
+def test_validator_requires_exact_integer_seed_equality(
+    tmp_path: Path,
+    selection: dict[str, Any],
+    field: str,
+) -> None:
+    selection_path = _write_selection(tmp_path, selection)
+    arm_dir = _write_arm(tmp_path / "arms", selection, 10000)
+    rows = _arm_rows(selection, 10000)
+    rows[0][field] = f"{rows[0][field]}.000000001"
+    _resign_arm(arm_dir, rows)
+
+    report = validate_certification_budget_arm(arm_dir, selection_path, STUDY_MANIFEST_PATH)
+
+    assert report["valid"] is False
+    assert field in report["error_message"]
 
 
 @pytest.mark.parametrize(
@@ -485,6 +586,35 @@ def test_aggregate_writes_deterministic_complete_bundle(
         "not a cap-promotion or production-budget decision",
     ):
         assert required in markdown
+
+
+def test_aggregate_rejects_extra_csv_cell_and_writes_diagnostics(
+    tmp_path: Path, selection: dict[str, Any]
+) -> None:
+    selection_path = _write_selection(tmp_path, selection)
+    arms_root = tmp_path / "arms"
+    arm_dirs = {
+        budget: _write_arm(arms_root, selection, budget) for budget in STUDY_MANIFEST["budget_grid"]
+    }
+    malformed_arm = arm_dirs[10000]
+    results_path = malformed_arm / "results.csv"
+    with results_path.open(newline="", encoding="utf-8") as handle:
+        csv_rows = list(csv.reader(handle))
+    csv_rows[1].append("surplus")
+    with results_path.open("w", newline="", encoding="utf-8") as handle:
+        csv.writer(handle).writerows(csv_rows)
+    _resign_arm_artifacts(malformed_arm)
+    output = tmp_path / "aggregate"
+
+    summary = aggregate_certification_budget_arms(
+        arm_dirs, selection_path, STUDY_MANIFEST_PATH, output
+    )
+
+    assert summary["complete_sensitivity_result"] is False
+    assert summary["arm_statuses"]["10000"]["valid"] is False
+    assert "extra cells" in summary["arm_statuses"]["10000"]["error_message"]
+    assert (output / "summary.json").is_file()
+    assert (output / "summary.md").is_file()
 
 
 def test_aggregate_retains_diagnostics_for_missing_and_incomplete_arms(

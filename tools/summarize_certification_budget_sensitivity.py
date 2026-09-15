@@ -42,6 +42,7 @@ _BUDGET_DEPENDENT_SOURCE_FIELDS = {
     "certified",
     "certification_status",
 }
+_SEED_FIELDS = ("data_seed", "calibration_seed", "bootstrap_seed")
 _STATUS_FIELDS = {
     "schema_version",
     "study",
@@ -91,7 +92,13 @@ def _read_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
             raise ValueError("arm CSV is missing a header")
-        return list(reader.fieldnames), list(reader)
+        rows = list(reader)
+    for line_number, row in enumerate(rows, start=2):
+        if None in row:
+            raise ValueError(f"arm CSV row {line_number} has extra cells")
+        if any(value is None for value in row.values()):
+            raise ValueError(f"arm CSV row {line_number} has missing cells")
+    return list(reader.fieldnames), rows
 
 
 def _optional_bool(value: object) -> bool | None:
@@ -118,6 +125,18 @@ def _required_nonnegative_int(value: object, field: str) -> int:
     return parsed
 
 
+def _required_exact_nonnegative_int(value: object, field: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a nonnegative integer")
+    try:
+        parsed = int(str(value))
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{field} must be a nonnegative integer") from error
+    if parsed < 0 or str(value).strip() != str(parsed):
+        raise ValueError(f"{field} must be a nonnegative integer")
+    return parsed
+
+
 def _required_finite_float(value: object, field: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (str, int, float)):
         raise ValueError(f"{field} must be finite")
@@ -128,6 +147,40 @@ def _required_finite_float(value: object, field: str) -> float:
     if not math.isfinite(parsed) or parsed < 0:
         raise ValueError(f"{field} must be finite and nonnegative")
     return parsed
+
+
+def _validate_certification_outcome(row: Mapping[str, Any]) -> None:
+    reason = str(row.get("certification_failure_reason", ""))
+    expected = {
+        "certified": ("certified", True, True),
+        "combination_budget_exhausted": ("not_certified", False, False),
+        "not_certified_other": ("not_certified", False, False),
+        "error": ("error", None, False),
+        "not_applicable_prior_error": ("error", None, False),
+        "not_applicable_unreached": ("skipped_unreached", None, False),
+    }.get(reason)
+    if expected is None:
+        return
+
+    expected_status, expected_certified, exact_required = expected
+    status = str(row.get("certification_status", ""))
+    try:
+        certified = _optional_bool(row.get("certified"))
+    except ValueError as error:
+        raise ValueError("certification outcome has an invalid certified value") from error
+    exact_value = row.get("exact_fragility_50")
+    exact_is_empty = exact_value in (None, "")
+    if status != expected_status or certified is not expected_certified:
+        raise ValueError("certification outcome does not agree with its status and reason")
+    if exact_required:
+        try:
+            _required_exact_nonnegative_int(exact_value, "exact_fragility_50")
+        except ValueError as error:
+            raise ValueError(
+                "certification outcome requires an integer exact_fragility_50"
+            ) from error
+    elif not exact_is_empty:
+        raise ValueError("certification outcome requires exact_fragility_50 to be null")
 
 
 def _pair_key(row: Mapping[str, Any]) -> tuple[str, int, int, int, int]:
@@ -345,8 +398,8 @@ def _validate_status_and_artifacts(
             raise ValueError("complete arm row count does not match expected rows")
         if observed_cap_rows != expected_cap_rows:
             raise ValueError("complete arm cap row counts do not match expected populations")
-    elif len(rows) >= expected_rows:
-        raise ValueError("non-complete arm cannot contain a complete row count")
+    elif len(rows) > expected_rows:
+        raise ValueError("non-complete arm cannot exceed the expected row count")
     return budget, arm_status
 
 
@@ -365,11 +418,17 @@ def _validate_rows_against_selection(
     allowed_reasons = set(study_manifest["reason_values"])
     for row in rows:
         _validate_diagnostic_row(row, allowed_reasons, budget)
+        _validate_certification_outcome(row)
 
     references_by_key = {_full_key(row): row for row in expected}
     references = [references_by_key[key] for key in observed_keys]
     comparison_rows = [dict(row) for row in rows]
     for row, reference in zip(comparison_rows, references, strict=True):
+        for field in _SEED_FIELDS:
+            observed_seed = _required_exact_nonnegative_int(row.get(field), field)
+            reference_seed = _required_exact_nonnegative_int(reference.get(field), field)
+            if observed_seed != reference_seed:
+                raise ValueError(f"{field} differs for {_full_key(row)}")
         for field in _BUDGET_DEPENDENT_SOURCE_FIELDS:
             row[field] = reference.get(field)
     compare_instrumented_rows_to_reference(comparison_rows, references)
