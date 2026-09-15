@@ -86,7 +86,7 @@ jobs:
   run-budget:
     name: Run certification budget ${{ matrix.budget }}
     needs: prepare
-    if: always()
+    if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:

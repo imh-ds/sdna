@@ -47,3 +47,16 @@ def test_aggregate_downloads_do_not_mask_missing_artifacts() -> None:
     )
     assert 'mkdir -p "$ARMS_DIR/$budget"' not in text
     assert '"sdna-certification-budget-arm-$budget-$GITHUB_RUN_ID"' in text
+
+
+def test_budget_matrix_does_not_continue_after_workflow_cancellation() -> None:
+    """Allow failed preparation but stop expensive matrix jobs on cancellation."""
+    text = WORKFLOW_PATH.read_text(encoding="utf-8")
+    run_budget = text.split("  run-budget:\n", maxsplit=1)[1].split("\n  aggregate:", maxsplit=1)[0]
+    job_condition = next(
+        line.strip()
+        for line in run_budget.splitlines()
+        if line.startswith("    if:") and not line.startswith("      ")
+    )
+
+    assert job_condition == "if: ${{ always() && !cancelled() }}"
