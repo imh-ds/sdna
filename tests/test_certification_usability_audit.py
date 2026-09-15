@@ -1,12 +1,11 @@
 """Tests for the Task 25 Phase A artifact audit."""
 
-import importlib
 from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
 
-audit_module = importlib.import_module("tools.audit_certification_usability")
+from tools import audit_certification_usability as audit_module
 from tools.audit_certification_usability import (
     UNAVAILABLE_FIELDS,
     _render_markdown,
