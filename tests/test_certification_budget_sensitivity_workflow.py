@@ -3,6 +3,7 @@
 from pathlib import Path
 
 WORKFLOW_PATH = Path(".github/workflows/certification-budget-sensitivity.yml")
+METHODOLOGY_PATH = Path("docs/methodology/certification_budget_sensitivity_study_v1.md")
 
 
 def test_budget_sensitivity_workflow_is_manual_fixed_matrix() -> None:
@@ -60,3 +61,36 @@ def test_budget_matrix_does_not_continue_after_workflow_cancellation() -> None:
     )
 
     assert job_condition == "if: ${{ always() && !cancelled() }}"
+
+
+def test_methodology_pre_specifies_the_budget_sensitivity_contract() -> None:
+    """Catch removal of fixed protocol commitments from the study record."""
+    assert METHODOLOGY_PATH.is_file()
+    text = METHODOLOGY_PATH.read_text(encoding="utf-8")
+
+    for required in (
+        "U_to_R(3)=44",
+        "U_to_R(4)=68",
+        "[1000, 5000, 10000, 20000]",
+        "1800",
+        "timeout",
+        "combination_budget_exhausted",
+        "calibration_require_reached=False",
+        "ordinary-partial",
+        "not a cap-promotion",
+        "overlap",
+        "cap 2",
+        "incomplete",
+    ):
+        assert required in text
+
+    for relative_path in (
+        "../superpowers/specs/2026-09-14-task26-certification-budget-sensitivity-design.md",
+        "../superpowers/plans/2026-09-14-task26-certification-budget-sensitivity.md",
+        "../../simulations/configs/certification_budget_sensitivity_v1.json",
+        "../../tools/run_certification_budget_sensitivity.py",
+        "../../tools/summarize_certification_budget_sensitivity.py",
+        "../../.github/workflows/certification-budget-sensitivity.yml",
+    ):
+        assert f"]({relative_path})" in text
+        assert (METHODOLOGY_PATH.parent / relative_path).resolve().is_file()
