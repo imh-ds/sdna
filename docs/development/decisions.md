@@ -888,3 +888,115 @@ implementation consequence rather than silently changing an earlier record.
   mechanism finding is recorded without promoting a cap or changing the
   production protocol. Any follow-up budget study requires a new
   pre-specified methodological decision.
+
+## ADR-025 — Pre-specify certification-budget sensitivity without changing production
+
+- **Date:** 2026-09-15
+- **Decision:** Run a manual-only fixed-budget study for Task 25 populations
+  `U_to_R(3)=44` and `U_to_R(4)=68`, using `[1000, 5000, 10000, 20000]`.
+  Cap 2 remains the unchanged production baseline. This is not a
+  cap-promotion, production-budget, or optimization decision.
+- **Rationale:** Task 25 observed zero certification yield in both selected
+  populations, with every row classified as `combination_budget_exhausted`.
+  That is diagnostically compatible with stopping at the 1,000-combination
+  budget before the next complete subset size; it does not establish that
+  certification is impossible at a larger budget. The exact 44/68 populations
+  retain the motivating rows and their cap-specific overlap. The fixed grid
+  probes pre-specified subset boundaries without choosing later budgets from
+  interim results. A `timeout`, `failed`, or `incomplete` arm has no yield
+  endpoint: missing rows cannot be scored as zero.
+- **Protocol and interpretation limits:** Only budget changes; all Task 25/24
+  data, pairing keys, datasets, seeds, estimator, target, calibration
+  (`calibration_require_reached=False`), ordinary-partial Wald comparator,
+  downstream procedures, and workflow behavior remain fixed. Each arm has an
+  1,800-second computation ceiling. Timed-out arms retain start time, elapsed
+  time, timeout ceiling, expected/completed rows, last key when available, and
+  whether certification exhausted its configured budget. Row-level
+  `combination_budget_exhausted` is distinct from an arm timeout. Any increase
+  supports only budget sensitivity for the selected population and does not
+  justify cap promotion, a production budget change, post-hoc selection, or a
+  universal sufficiency claim. Cap 2 remains unchanged regardless of outcome.
+- **Corrected source identities:** Task 25 is run `34895397606`, commit
+  `7b22b3fca39888e1a452cb5a7ad8ec244ccd752e`, artifact
+  `sdna-certification-usability-34895397606`, `results.csv` SHA-256
+  `4ec0068d8fe2b2b62df45fccbbf71f884c50589e319e48c3a2400111ae051918`, and
+  manifest SHA-256
+  `b47842e33092b9431220204f46c77723f2465f86a1685e1cd1c90e601bedd4ff`.
+  Nested Task 24 is run `34871220664`, commit
+  `338b0d95cdb312b2805affb0de458e06508d80f0`, artifact
+  `sdna-cap-expansion-34871220664`, `results.csv` SHA-256
+  `110d0b4f266b253251ac1a64bb4195b61722008d426b74c75802d3de57b43d87`, and
+  manifest SHA-256
+  `415576f1fec5ccd2a47e0ad411d29e4d48c6e8e370609ae495ccc877fe74e974`.
+  The latter is Task 24's checksum, not a mislabeled Task 25 checksum.
+- **Design and implementation provenance:** Specification commit
+  `810e57cd353426d6ebdb82f1c642088a9c75e2f6` (`docs: specify certification
+  budget sensitivity study`); plan commit
+  `80fbf44469656f8fa33663f2b47384d080fff238` (`docs: add certification budget
+  sensitivity implementation plan`). Core implementation commits through
+  Task 4 are `9fb6f20f1e573025a92ebc04d869a66aa4205507` (manifest),
+  `164076bea1d7e5941dc6f6c02768513aae7bdee3` (runner),
+  `7e011d2a0ca1d1f38b092c10991e0b74778ef912` (runner fix),
+  `7b69682f0180a72eacaf49f81e68638276b20597` (summary),
+  `f5c83c2f6e478d2a61f55929ffa772976e4c5b9f` (validation fix),
+  `3eff95de9bb7ce5ea2ec54b643d5bde130e47251` (minimum bound),
+  `a06d34622b15978ffe54e0235e42ad87c9dbd871` (manual workflow), and
+  `5d818524d6c561644a4b48bf5becaa28f925f560` (cancellation handling).
+- **Task 5 and local-verification commits:** Task 5 documentation commits are
+  `a32c5ddc669e98e075f1a979cf20fc0349928e86` (methodology and ADR) and
+  `f5cfcc858ac3877afe0a0b2f615f87d62bbee9b9` (explicit selection rule).
+  Task 6 local-verification preparation is
+  `542ac1c6a27158155cae843150a6d8e6fd999bd4` (ignore generated artifacts and
+  correct the pre-existing audit-test import order).
+- **Task 6 local acceptance:** On 2026-09-15, all 91 focused Task 26 tests
+  passed, the complete suite passed (259 tests), repository Ruff passed,
+  `compileall` passed, and the Task 25 audit-test module passed (6 tests). The
+  installed environment is Python 3.12.14 with NumPy 2.5.1 and mypy 2.2.0,
+  while `constraints-ci.txt` pins mypy 2.3.1. Configured `mypy src/sdna`
+  targets Python 3.11 and stops parsing NumPy's Python-3.12 `type` aliases;
+  the same installed mypy succeeds with `--python-version 3.12`. This is a
+  local interpreter/dependency-stub mismatch, not a passing Python 3.11
+  check. CI/hosted verification must use its actual Python 3.11 environment.
+- **Synthetic end-to-end rehearsal:** `.task26-artifacts/local-rehearsal/`
+  contains the local report and arm/aggregate outputs. The mocked four-arm
+  run validated 16 unique `(pairing_key, candidate_cap, budget)` rows, kept
+  the overlapping key in both cap populations, and changed only certification
+  diagnostics across budgets. The report SHA-256 is
+  `7d4d2b891f03e3002ecc51ebbd77b301d539c01b753f448d30cbb1039c0b709b`; the
+  rehearsal script SHA-256 is
+  `7d6c7d00d8aeec7798a88b082a60faf280302e1fba2dc09a9be8ae784b9f0f4a`.
+  This is workflow rehearsal evidence, not Task 26 empirical evidence.
+  Pre-existing untracked pytest
+  fixture-output directories from Tasks 2–4 were preserved and not staged;
+  tracked changes were clean before this decision-log update.
+- **Dispatch gate:** At the end of local acceptance, the GitHub repository's
+  default branch was `main`, and its registered workflow list did not include
+  `certification-budget-sensitivity.yml`. No hosted run was dispatched.
+  GitHub requires a `workflow_dispatch` workflow file to exist on the default
+  branch before it can receive a manual event; reviewed integration of this
+  branch is therefore required before dispatch.
+- **Hosted execution fields:** Hosted Actions run ID, dispatched commit,
+  artifact names and SHA-256 checksums, runtime, per-arm statuses, yields,
+  reason counts, and acceptance finding are **pending**. Record them only
+  after the default-branch workflow has been manually dispatched and its
+  artifacts validated.
+- **Files for independent review:**
+  `docs/superpowers/specs/2026-09-14-task26-certification-budget-sensitivity-design.md`,
+  `docs/superpowers/plans/2026-09-14-task26-certification-budget-sensitivity.md`,
+  `simulations/configs/certification_budget_sensitivity_v1.json`,
+  `tools/certification_budget_sensitivity_manifest.py`,
+  `tools/prepare_certification_budget_sensitivity.py`,
+  `tools/run_certification_budget_sensitivity.py`,
+  `tools/summarize_certification_budget_sensitivity.py`,
+  `tests/test_certification_budget_sensitivity_manifest.py`,
+  `tests/test_prepare_certification_budget_sensitivity.py`,
+  `tests/test_certification_budget_sensitivity_runner.py`,
+  `tests/test_certification_budget_sensitivity_summary.py`,
+  `tests/test_certification_budget_sensitivity_workflow.py`,
+  `.github/workflows/certification-budget-sensitivity.yml`,
+  `docs/methodology/certification_budget_sensitivity_study_v1.md`, and
+  `docs/development/decisions.md`. Task 6's local verification support also
+  changes `.gitignore` and the import order in
+  `tests/test_certification_usability_audit.py`.
+- **Status:** Protocol and traceability are committed before hosted execution;
+  Task 26 empirical evidence remains pending.

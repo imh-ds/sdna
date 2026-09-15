@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "study": "certification_budget_sensitivity",
+  "output_schema_version": 1,
+  "source_task25_run_id": "34895397606",
+  "source_task25_commit": "7b22b3fca39888e1a452cb5a7ad8ec244ccd752e",
+  "source_task25_artifact": "sdna-certification-usability-34895397606",
+  "source_task25_results_sha256": "4ec0068d8fe2b2b62df45fccbbf71f884c50589e319e48c3a2400111ae051918",
+  "source_task25_manifest_checksum": "b47842e33092b9431220204f46c77723f2465f86a1685e1cd1c90e601bedd4ff",
+  "source_task24_run_id": "34871220664",
+  "source_task24_commit": "338b0d95cdb312b2805affb0de458e06508d80f0",
+  "source_task24_artifact": "sdna-cap-expansion-34871220664",
+  "source_task24_results_sha256": "110d0b4f266b253251ac1a64bb4195b61722008d426b74c75802d3de57b43d87",
+  "source_task24_manifest_checksum": "415576f1fec5ccd2a47e0ad411d29e4d48c6e8e370609ae495ccc877fe74e974",
+  "source_manifest": "simulations/configs/cap_expansion_v1.json",
+  "task25_manifest": "simulations/configs/certification_usability_v1.json",
+  "candidate_caps": [3, 4],
+  "expected_population_rows": {
+    "cap3": 44,
+    "cap4": 68
+  },
+  "budget_grid": [1000, 5000, 10000, 20000],
+  "baseline_budget": 1000,
+  "runtime_ceiling_seconds": 1800,
+  "actions_timeout_minutes": 40,
+  "expected_rows_per_budget": 112,
+  "seed": 20260910,
+  "calibration_simulations": 25,
+  "bootstrap_samples": 100,
+  "bootstrap_confidence": 0.95,
+  "calibration_require_reached": false,
+  "primary_target": 0.5,
+  "reason_values": [
+    "not_applicable_unreached",
+    "not_applicable_prior_error",
+    "certified",
+    "combination_budget_exhausted",
+    "not_certified_other",
+    "error"
+  ]
+}
