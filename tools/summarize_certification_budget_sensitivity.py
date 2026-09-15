@@ -174,11 +174,18 @@ def _validate_certification_outcome(row: Mapping[str, Any]) -> None:
         raise ValueError("certification outcome does not agree with its status and reason")
     if exact_required:
         try:
-            _required_exact_nonnegative_int(exact_value, "exact_fragility_50")
+            exact_minimum = _required_exact_nonnegative_int(exact_value, "exact_fragility_50")
+            greedy_upper_bound = _required_exact_nonnegative_int(
+                row.get("greedy_fragility_50"), "greedy_fragility_50"
+            )
         except ValueError as error:
             raise ValueError(
-                "certification outcome requires an integer exact_fragility_50"
+                "certification outcome requires integer exact and greedy fragility values"
             ) from error
+        if not 1 <= exact_minimum <= greedy_upper_bound:
+            raise ValueError(
+                "certification outcome exact_fragility_50 must be between 1 and greedy_fragility_50"
+            )
     elif not exact_is_empty:
         raise ValueError("certification outcome requires exact_fragility_50 to be null")
 

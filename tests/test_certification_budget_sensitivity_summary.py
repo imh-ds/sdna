@@ -435,6 +435,24 @@ def test_validator_rejects_inconsistent_certification_outcomes(
     assert "certification outcome" in report["error_message"]
 
 
+@pytest.mark.parametrize("exact_minimum", [0, 4])
+def test_validator_rejects_certified_exact_minimum_outside_greedy_bound(
+    tmp_path: Path,
+    selection: dict[str, Any],
+    exact_minimum: int,
+) -> None:
+    selection_path = _write_selection(tmp_path, selection)
+    arm_dir = _write_arm(tmp_path / "arms", selection, 10000)
+    rows = _arm_rows(selection, 10000)
+    rows[0]["exact_fragility_50"] = exact_minimum
+    _resign_arm(arm_dir, rows)
+
+    report = validate_certification_budget_arm(arm_dir, selection_path, STUDY_MANIFEST_PATH)
+
+    assert report["valid"] is False
+    assert "certification outcome" in report["error_message"]
+
+
 @pytest.mark.parametrize(
     "field",
     ["data_seed", "calibration_seed", "bootstrap_seed"],
