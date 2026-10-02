@@ -1,0 +1,178 @@
+name: SDNA localized-network operating-envelope study
+
+on:
+  workflow_dispatch:
+    inputs:
+      matched_rerun_run_id:
+        description: "Completed baseline run ID to compare against; leave blank for the baseline run."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  shards:
+    name: Run localized-network shard p=${{ matrix.p }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        p: [20, 40, 60]
+
+    steps:
+      - name: Prepare shard output directory
+        env:
+          SHARD_DIR: ${{ runner.temp }}/localized-network-shards/p-${{ matrix.p }}
+        run: |
+          mkdir -p "$SHARD_DIR"
+          {
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "p_shard=${{ matrix.p }}"
+            echo "ref=$GITHUB_REF"
+            echo "sha=$GITHUB_SHA"
+          } > "$SHARD_DIR/github-run.txt"
+
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]" -c constraints-ci.txt
+
+      - name: Run fixed localized-network p shard
+        env:
+          SHARD_DIR: ${{ runner.temp }}/localized-network-shards/p-${{ matrix.p }}
+        run: >-
+          python -m tools.run_localized_network
+          --config simulations/configs/localized_network_v1.json
+          --output-dir "$SHARD_DIR"
+          --p-shard ${{ matrix.p }}
+
+      - name: Upload localized-network p-shard evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: localized-network-p${{ matrix.p }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/localized-network-shards/p-${{ matrix.p }}
+          if-no-files-found: warn
+          retention-days: 90
+
+  aggregate:
+    name: Aggregate available localized-network shards
+    needs: [shards]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prepare aggregate and shard-download directories
+        env:
+          AGGREGATE_DIR: ${{ runner.temp }}/localized-network-aggregate
+          DOWNLOADED_DIR: ${{ runner.temp }}/localized-network-downloaded-shards
+          BASELINE_DIR: ${{ runner.temp }}/localized-network-baseline-shards
+        run: |
+          mkdir -p "$AGGREGATE_DIR" "$DOWNLOADED_DIR"
+          mkdir -p "$BASELINE_DIR"
+          {
+            echo "workflow=$GITHUB_WORKFLOW"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "event=$GITHUB_EVENT_NAME"
+            echo "ref=$GITHUB_REF"
+            echo "sha=$GITHUB_SHA"
+          } > "$AGGREGATE_DIR/github-run.txt"
+
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]" -c constraints-ci.txt
+
+      - name: Download all available localized-network shard artifacts
+        if: always()
+        continue-on-error: true
+        uses: actions/download-artifact@v7.0.1
+        with:
+          pattern: localized-network-p*-${{ github.run_id }}
+          path: ${{ runner.temp }}/localized-network-downloaded-shards
+          merge-multiple: false
+
+      - name: Download baseline shards for matched-rerun acceptance
+        if: ${{ inputs.matched_rerun_run_id != '' }}
+        uses: actions/download-artifact@v7.0.1
+        with:
+          pattern: localized-network-p*-${{ inputs.matched_rerun_run_id }}
+          run-id: ${{ inputs.matched_rerun_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/localized-network-baseline-shards
+          merge-multiple: false
+
+      - name: Summarize available shards and retain incomplete status
+        if: always()
+        continue-on-error: true
+        env:
+          AGGREGATE_DIR: ${{ runner.temp }}/localized-network-aggregate
+          DOWNLOADED_DIR: ${{ runner.temp }}/localized-network-downloaded-shards
+          BASELINE_DIR: ${{ runner.temp }}/localized-network-baseline-shards
+          MATCHED_RERUN_RUN_ID: ${{ inputs.matched_rerun_run_id }}
+        run: |
+          mapfile -t shard_dirs < <(find "$DOWNLOADED_DIR" -mindepth 1 -maxdepth 1 -type d -name 'localized-network-p*' -print | sort)
+          if [ "${#shard_dirs[@]}" -eq 0 ]; then
+            mkdir -p "$DOWNLOADED_DIR/no-shard-artifacts"
+            shard_dirs=("$DOWNLOADED_DIR/no-shard-artifacts")
+            echo "No shard artifacts were available for this run." > "$AGGREGATE_DIR/no-shard-artifacts.txt"
+          fi
+          {
+            echo "python -m tools.summarize_localized_network --config simulations/configs/localized_network_v1.json --output-dir $AGGREGATE_DIR --shard <each available shard directory>"
+            echo "summary=$AGGREGATE_DIR/summary.json"
+            printf 'shard_dir=%s\n' "${shard_dirs[@]}"
+          } > "$AGGREGATE_DIR/commands.txt"
+          shard_args=()
+          for shard_dir in "${shard_dirs[@]}"; do
+            shard_args+=(--shard "$shard_dir")
+          done
+          if [ -n "$MATCHED_RERUN_RUN_ID" ]; then
+            mapfile -t baseline_dirs < <(find "$BASELINE_DIR" -mindepth 1 -maxdepth 1 -type d -name 'localized-network-p*' -print | sort)
+            if [ "${#baseline_dirs[@]}" -eq 0 ]; then
+              mkdir -p "$BASELINE_DIR/no-matched-rerun-artifacts"
+              baseline_dirs=("$BASELINE_DIR/no-matched-rerun-artifacts")
+            fi
+            for shard_dir in "${baseline_dirs[@]}"; do
+              shard_args+=(--matched-rerun-shard "$shard_dir")
+            done
+          fi
+          python -m tools.summarize_localized_network \
+            --config simulations/configs/localized_network_v1.json \
+            --output-dir "$AGGREGATE_DIR" \
+            "${shard_args[@]}"
+
+      - name: Upload aggregate summary and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: localized-network-aggregate-${{ github.run_id }}
+          path: ${{ runner.temp }}/localized-network-aggregate
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce complete localized-network result after upload
+        if: always()
+        env:
+          AGGREGATE_DIR: ${{ runner.temp }}/localized-network-aggregate
+          MATCHED_RERUN_RUN_ID: ${{ inputs.matched_rerun_run_id }}
+        run: >-
+          python -c "import json, os; from pathlib import Path; summary = Path(os.environ['AGGREGATE_DIR']) / 'summary.json'; status = json.loads(summary.read_text(encoding='utf-8')).get('acceptance_status') if summary.is_file() else None; acceptable = status == 'complete' or (status == 'awaiting_matched_rerun' and not os.environ['MATCHED_RERUN_RUN_ID']); raise SystemExit(0 if acceptable else 1)"

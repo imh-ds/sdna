@@ -1098,3 +1098,193 @@ implementation consequence rather than silently changing an earlier record.
 - **Status:** Task 26 Task 6 hosted acceptance is complete. The v1 protocol is
   unchanged; the empirical record is in the v2 report. Current production cap
   2 and its budget remain unchanged.
+
+### ADR-026 — Task 27 pre-run decision: localized-network operating-envelope study
+
+- **Decision:** Freeze the Task 27 localized-network study protocol before
+  hosted empirical execution. Use `baseline_cap2` (`search_cap=2`) as the
+  primary operating workflow and `diagnostic_cap4` (`search_cap=4`) only as a
+  paired diagnostic sensitivity arm. Preserve the current production cap,
+  certification budget, estimator settings, and v0.1 defaults regardless of
+  technical artifact acceptance or observed results.
+- **Purpose and rationale:** Tasks 24–26 showed that greater search reach did
+  not by itself establish certification or fresh-sample performance. Task 27
+  evaluates localized case-influence and prespecified focal-edge fragility in
+  a sparse modular network with fixed within-community, hub-adjacent, and
+  bridge contexts, across the frozen `N` and `p` grid. It does not evaluate
+  automatic whole-network discovery, data-driven edge selection, or general
+  network recovery.
+- **Pre-run sources:** Design/spec commit `2f0b49a`; implementation-plan commit
+  `74823b6`; source implementation head before Task 5 documentation
+  `bef4f67`. The frozen manifest is
+  `simulations/configs/localized_network_v1.json`, with SHA-256
+  `f163ce9e528de59312abe785a5dda984ba8ee4f3c1c124c853bc78a76001bf48`.
+  The Task 5 documentation commit cannot include its own final SHA; `bef4f67`
+  identifies the source implementation head and the review files below identify
+  the exact protocol and implementation contracts. A follow-up provenance line
+  may record the Task 5 commit SHA after integration.
+- **Frozen settings:** Root seed `20261002`; `N=[50,100,150]`,
+  `p=[20,40,60]`; five-node modules; three focal contexts; clean, one-case,
+  and three-case contamination conditions; ten replications per cell; paired
+  cap-2 and cap-4 arms; relative fragility target `0.5`; certification budget
+  `1000`; `25` calibration simulations with right-censored reference tails
+  (`require_reached=false`); `100` bootstrap draws at confidence `0.95`.
+  The expected design is `810` pairing keys and `1,620` arm rows, with `270`
+  keys and `540` rows per `p` shard. The `N=50, p=60` cells are labeled
+  `p>N` high-dimensional stress cells and interpreted separately. The hosted
+  workflow is manual-only, with a `3,600`-second shard ceiling and a `70`-minute
+  Actions job timeout.
+- **Estimands and denominators:** Report by `N × p × focal context × condition
+  × arm`. Reached rate is reached / fragility-stage-completed; fragility-stage
+  failure rate is fragility errors / all scheduled; certification given reach
+  is certified / reached; certified yield is certified / all scheduled; and
+  budget exhaustion given reach is exhausted / reached. Clean false flags are
+  valid clean rows with reference-tail probability `<=0.05` / clean rows with
+  valid finite reference-tail probability, with invalid or missing clean rows
+  counted separately. This is a per-prespecified-edge description, not a
+  network-wide result, is not multiplicity-controlled, and is not confirmatory.
+  Influence precision and recall are means over valid contaminated rows, with
+  valid and scheduled counts shown. Every proportion receives a descriptive
+  95% Wilson interval; zero denominators are null. Errors, unreached and
+  uncertified rows, timeouts, and incomplete shards remain separately visible
+  and are never converted to zero.
+- **Acceptance boundary:** Technical acceptance concerns completeness and
+  internal validity of the frozen artifacts (all rows and pairs, matching
+  paired identities, valid truth metadata, schemas, denominators, and matched
+  rerun deterministic fields). This is not empirical evidence of adequate
+  performance or a scientific success criterion. No universal cutoff or
+  general recovery claim is authorized.
+- **Hosted status:** No hosted run has been dispatched or accepted. Manual
+  hosted execution, artifact validation, empirical results, and checksums are
+  pending; record them only in a later evidence report and append-only
+  addendum.
+- **Files for independent review:**
+  `docs/superpowers/specs/2026-10-02-task27-localized-network-operating-envelope-design.md`,
+  `docs/superpowers/plans/2026-10-02-task27-localized-network-operating-envelope.md`,
+  `simulations/configs/localized_network_v1.json`,
+  `tools/localized_network_manifest.py`,
+  `simulations/localized_network_dgp.py`,
+  `tools/run_localized_network.py`,
+  `tools/summarize_localized_network.py`,
+  `tests/test_localized_network_manifest.py`,
+  `tests/test_localized_network_dgp.py`,
+  `tests/test_localized_network_runner.py`,
+  `tests/test_localized_network_summary.py`,
+  `.github/workflows/localized-network.yml`,
+  `tests/test_localized_network_workflow.py`,
+  `docs/methodology/localized_network_operating_envelope_v1.md`, and this
+  decision record. The workflow and workflow-specific test are listed for
+  independent review but are outside this documentation-only change.
+- **Status:** Protocol and pre-run decision are recorded; hosted empirical
+  evidence is pending.
+
+### ADR-026 implementation provenance addendum
+
+- **Exact decision and implementation commits:** The pre-run decision above
+  first entered the repository in `19158cc` (`docs: pre-specify Task 27
+  localized network protocol`). The manual workflow was added in `763f5bc`,
+  its incomplete-artifact acceptance gate was hardened in `8a995fb`, the
+  workflow/protocol contract tests were added in `5ffe912`, and upload/gate
+  ordering plus checksum-recomputation coverage was added in `65c5d2b`.
+  The workflow and protocol are therefore reviewable as a small commit series,
+  not as one assumed source revision.
+- **Why this addendum exists:** `19158cc` cannot contain its own eventual Git
+  SHA. This append-only entry makes the exact decision commit and subsequent
+  implementation/test commits discoverable to independent reviewers without
+  rewriting the original pre-run rationale.
+- **Review files:** `.github/workflows/localized-network.yml`,
+  `docs/methodology/localized_network_operating_envelope_v1.md`,
+  `tests/test_localized_network_workflow.py`, and the ADR-026 pre-run entry
+  immediately above. The frozen manifest checksum remains
+  `f163ce9e528de59312abe785a5dda984ba8ee4f3c1c124c853bc78a76001bf48`.
+- **Status:** This provenance addendum is documentation only. No hosted run
+  has been dispatched; Task 6 review/integration and Task 7 execution remain
+  pending.
+
+### ADR-027 — Task 27 review corrections and matched-rerun acceptance
+
+- **Context:** Independent Task 6 review found that valid influence-stage
+  failures were rejected by the summarizer, the pre-specified matrix condition
+  diagnostic was not present in artifacts, and matched-rerun reproducibility
+  was stated as an acceptance requirement but had no executable comparison
+  path. These gaps were found before any hosted Task 27 run, so no empirical
+  data or prior decision is being overwritten.
+- **Decision:** Preserve the v1 matrix and estimands. Treat a contaminated-row
+  influence failure as a valid scheduled workflow error. Record the fitted
+  shrinkage-correlation condition number per row and summarize both it and
+  shrinkage by cell with mean, minimum, maximum, and valid/scheduled counts;
+  successful-fit rows must carry all fit diagnostics and shrinkage must be in
+  `[0, 1]`.
+  Make final technical acceptance require a second complete run whose
+  deterministic row fields exactly match the baseline, excluding elapsed time;
+  require matching commit and software/configuration provenance plus
+  checksummed hosted-run metadata with distinct baseline/rerun GitHub Actions
+  run IDs. A complete first run is explicitly `awaiting_matched_rerun`, not
+  accepted complete.
+- **Rationale:** Failure outcomes must remain in the denominator, numerical
+  boundary diagnostics must be available where the design promised them, and
+  reproducibility should be checked on the actual artifacts rather than
+  inferred only from seed derivation. Run IDs establish that the artifacts
+  came from distinct hosted workflow executions. Runtime is intentionally
+  excluded from exact comparison. No failure or mismatch is converted to zero
+  or dropped.
+- **Protocol:** The frozen v1 design remains unchanged. The operational
+  acceptance method is described in
+  `docs/methodology/localized_network_operating_envelope_v2.md`; v1 is retained
+  as the original pre-run protocol.
+- **Implementation and tests:** `tools/summarize_localized_network.py`,
+  `tools/run_localized_network.py`, `simulations/full_workflow.py`,
+  `.github/workflows/localized-network.yml`, and the Task 27 runner, summary,
+  full-workflow, and Actions contract tests. Review findings are in the Task 6
+  independent review returned on 2026-10-02. Exact commit SHAs for the
+  implementation and this record are added in a subsequent provenance
+  addendum, since this entry cannot contain the SHA of its own commit.
+- **Status:** Implemented locally and under final verification. Hosted
+  baseline/matched-rerun execution and empirical findings remain pending.
+
+### ADR-027 implementation provenance addendum
+
+- **Exact implementation commits:** `97d8e32` accepts and retains influence
+  stage errors as scheduled outcomes; `d9ac6bb` carries the fitted condition
+  number into result rows and adds cell-level shrinkage/condition summaries;
+  `521ba63` adds deterministic matched-rerun comparison, the manual two-run
+  Actions flow, and the v2 acceptance addendum; `ad19a22` requires complete
+  successful-fit diagnostics, rejects metrics attached to influence failures,
+  checksums the hosted run-identity file, and requires distinct GitHub run IDs
+  in matched artifacts.
+- **Why the final hardening commit exists:** Independent review of `521ba63`
+  found that optional fit diagnostics could still pass acceptance and copied
+  shard directories could masquerade as a second run. `ad19a22` makes both
+  contracts enforceable and preserves baseline/rerun run IDs in the report.
+- **Review files:** `tools/summarize_localized_network.py`,
+  `tools/run_localized_network.py`, `simulations/full_workflow.py`,
+  `.github/workflows/localized-network.yml`,
+  `tests/test_localized_network_summary.py`,
+  `tests/test_localized_network_runner.py`,
+  `tests/test_localized_network_workflow.py`, and
+  `docs/methodology/localized_network_operating_envelope_v2.md`.
+- **Verification at `ad19a22`:** Python 3.14 full repository suite: 359
+  passed; compileall passed; focused hosted workflow YAML parse passed. Ruff
+  and mypy were not available in the local interpreter and remain for PR CI.
+  Independent re-review of the final hardening is pending; no hosted study run
+  has occurred.
+
+### ADR-027 final numerical-range review addendum
+
+- **Review finding and rationale:** The independent re-review of `ad19a22`
+  identified that present-but-impossible numeric diagnostics could pass the
+  schema checks. A 2-norm matrix condition number must be at least `1`, and a
+  partial correlation must lie in `[-1, 1]`; accepting values outside those
+  domains would undermine the numerical-boundary report.
+- **Exact correction commit:** `b0329d9` enforces those ranges in the artifact
+  validator and records them in the v2 acceptance addendum. Regression cases
+  cover below-one condition numbers and out-of-range focal partial
+  correlations.
+- **Review files:** `tools/summarize_localized_network.py`,
+  `tests/test_localized_network_summary.py`,
+  `tests/test_localized_network_workflow.py`, and
+  `docs/methodology/localized_network_operating_envelope_v2.md`.
+- **Verification at `b0329d9`:** Python 3.14 full repository suite: 361
+  passed; compileall passed. The independent reviewer marked the prior state
+  `ad19a22` as hold; final re-review of `b0329d9` and hosted PR CI remain
+  pending. No hosted study run has occurred.

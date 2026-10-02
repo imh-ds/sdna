@@ -72,6 +72,7 @@ def _initial_result(dataset: SimulatedDataset) -> dict[str, Any]:
         "true_rho": float(dataset.partial_correlation[edge]),
         "observed_rho": None,
         "lambda": None,
+        "condition_number": None,
         "contamination_count": len(dataset.contaminated_cases),
         "contamination_status": int(bool(dataset.contaminated_cases)),
         "greedy_fragility_50": None,
@@ -146,6 +147,7 @@ def run_full_workflow(
     try:
         fitted = fit_network(dataset.X)
         result["lambda"] = fitted.shrinkage
+        result["condition_number"] = fitted.diagnostics.condition_number
         result["observed_rho"] = float(fitted.partial_correlation[edge])
     except _STAGE_ERRORS as error:
         for stage in ("fragility", "certification", "calibration", "wald", "bootstrap"):

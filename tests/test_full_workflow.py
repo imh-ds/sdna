@@ -52,6 +52,8 @@ def test_full_workflow_reports_all_stage_statuses() -> None:
         "bootstrap_status",
         "workflow_status",
     } <= set(result)
+    assert np.isfinite(result["condition_number"])
+    assert result["condition_number"] > 0.0
     assert result["bootstrap_status"] in {"ok", "error"}
     assert result["calibration_status"] in {
         "finite",
