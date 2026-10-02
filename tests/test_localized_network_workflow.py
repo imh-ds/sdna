@@ -6,6 +6,8 @@ import json
 import re
 from pathlib import Path
 
+from tools.localized_network_manifest import localized_manifest_checksum
+
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/localized-network.yml"
@@ -53,6 +55,12 @@ def test_workflow_matches_frozen_manifest_and_incomplete_artifact_behavior() -> 
     assert "${{ needs.shards.result }}" in aggregate_job or "needs: [shards]" in text
     assert "summary.json" in aggregate_job
     assert "acceptance_status" in aggregate_job
+    assert "no-shard-artifacts" in aggregate_job
+    upload_position = aggregate_job.index("name: Upload aggregate summary and diagnostics")
+    gate_position = aggregate_job.index("name: Enforce complete localized-network result after upload")
+    assert upload_position < gate_position
+    assert "if: always()" in aggregate_job[upload_position:gate_position]
+    assert "if: always()" in aggregate_job[gate_position:]
 
 
 def test_v1_protocol_and_prerun_decision_are_prespecified_and_scoped() -> None:
@@ -79,7 +87,9 @@ def test_v1_protocol_and_prerun_decision_are_prespecified_and_scoped() -> None:
     assert manifest["expected_pairing_keys"] == 810
 
     assert "Task 27 pre-run decision" in decisions
-    assert "f163ce9e528de59312abe785a5dda984ba8ee4f3c1c124c853bc78a76001bf48" in decisions
+    frozen_digest = "f163ce9e528de59312abe785a5dda984ba8ee4f3c1c124c853bc78a76001bf48"
+    assert localized_manifest_checksum(manifest) == frozen_digest
+    assert frozen_digest in decisions
     assert "2f0b49a" in decisions and "74823b6" in decisions and "bef4f67" in decisions
     for file_name in (
         "localized_network_v1.json",
