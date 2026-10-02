@@ -1098,3 +1098,82 @@ implementation consequence rather than silently changing an earlier record.
 - **Status:** Task 26 Task 6 hosted acceptance is complete. The v1 protocol is
   unchanged; the empirical record is in the v2 report. Current production cap
   2 and its budget remain unchanged.
+
+### ADR-026 — Task 27 pre-run decision: localized-network operating-envelope study
+
+- **Decision:** Freeze the Task 27 localized-network study protocol before
+  hosted empirical execution. Use `baseline_cap2` (`search_cap=2`) as the
+  primary operating workflow and `diagnostic_cap4` (`search_cap=4`) only as a
+  paired diagnostic sensitivity arm. Preserve the current production cap,
+  certification budget, estimator settings, and v0.1 defaults regardless of
+  technical artifact acceptance or observed results.
+- **Purpose and rationale:** Tasks 24–26 showed that greater search reach did
+  not by itself establish certification or fresh-sample performance. Task 27
+  evaluates localized case-influence and prespecified focal-edge fragility in
+  a sparse modular network with fixed within-community, hub-adjacent, and
+  bridge contexts, across the frozen `N` and `p` grid. It does not evaluate
+  automatic whole-network discovery, data-driven edge selection, or general
+  network recovery.
+- **Pre-run sources:** Design/spec commit `2f0b49a`; implementation-plan commit
+  `74823b6`; source implementation head before Task 5 documentation
+  `bef4f67`. The frozen manifest is
+  `simulations/configs/localized_network_v1.json`, with SHA-256
+  `f163ce9e528de59312abe785a5dda984ba8ee4f3c1c124c853bc78a76001bf48`.
+  The Task 5 documentation commit cannot include its own final SHA; `bef4f67`
+  identifies the source implementation head and the review files below identify
+  the exact protocol and implementation contracts. A follow-up provenance line
+  may record the Task 5 commit SHA after integration.
+- **Frozen settings:** Root seed `20261002`; `N=[50,100,150]`,
+  `p=[20,40,60]`; five-node modules; three focal contexts; clean, one-case,
+  and three-case contamination conditions; ten replications per cell; paired
+  cap-2 and cap-4 arms; relative fragility target `0.5`; certification budget
+  `1000`; `25` calibration simulations with right-censored reference tails
+  (`require_reached=false`); `100` bootstrap draws at confidence `0.95`.
+  The expected design is `810` pairing keys and `1,620` arm rows, with `270`
+  keys and `540` rows per `p` shard. The `N=50, p=60` cells are labeled
+  `p>N` high-dimensional stress cells and interpreted separately. The hosted
+  workflow is manual-only, with a `3,600`-second shard ceiling and a `70`-minute
+  Actions job timeout.
+- **Estimands and denominators:** Report by `N × p × focal context × condition
+  × arm`. Reached rate is reached / fragility-stage-completed; fragility-stage
+  failure rate is fragility errors / all scheduled; certification given reach
+  is certified / reached; certified yield is certified / all scheduled; and
+  budget exhaustion given reach is exhausted / reached. Clean false flags are
+  valid clean rows with reference-tail probability `<=0.05` / clean rows with
+  valid finite reference-tail probability, with invalid or missing clean rows
+  counted separately. This is a per-prespecified-edge description, not a
+  network-wide result, is not multiplicity-controlled, and is not confirmatory.
+  Influence precision and recall are means over valid contaminated rows, with
+  valid and scheduled counts shown. Every proportion receives a descriptive
+  95% Wilson interval; zero denominators are null. Errors, unreached and
+  uncertified rows, timeouts, and incomplete shards remain separately visible
+  and are never converted to zero.
+- **Acceptance boundary:** Technical acceptance concerns completeness and
+  internal validity of the frozen artifacts (all rows and pairs, matching
+  paired identities, valid truth metadata, schemas, denominators, and matched
+  rerun deterministic fields). This is not empirical evidence of adequate
+  performance or a scientific success criterion. No universal cutoff or
+  general recovery claim is authorized.
+- **Hosted status:** No hosted run has been dispatched or accepted. Manual
+  hosted execution, artifact validation, empirical results, and checksums are
+  pending; record them only in a later evidence report and append-only
+  addendum.
+- **Files for independent review:**
+  `docs/superpowers/specs/2026-10-02-task27-localized-network-operating-envelope-design.md`,
+  `docs/superpowers/plans/2026-10-02-task27-localized-network-operating-envelope.md`,
+  `simulations/configs/localized_network_v1.json`,
+  `tools/localized_network_manifest.py`,
+  `simulations/localized_network_dgp.py`,
+  `tools/run_localized_network.py`,
+  `tools/summarize_localized_network.py`,
+  `tests/test_localized_network_manifest.py`,
+  `tests/test_localized_network_dgp.py`,
+  `tests/test_localized_network_runner.py`,
+  `tests/test_localized_network_summary.py`,
+  `.github/workflows/localized-network.yml`,
+  `tests/test_localized_network_workflow.py`,
+  `docs/methodology/localized_network_operating_envelope_v1.md`, and this
+  decision record. The workflow and workflow-specific test are listed for
+  independent review but are outside this documentation-only change.
+- **Status:** Protocol and pre-run decision are recorded; hosted empirical
+  evidence is pending.
