@@ -182,6 +182,44 @@ def test_interruption_keeps_completed_rows_and_incomplete_status(
     assert status["expected_rows"] == 540
 
 
+@pytest.mark.parametrize("tamper", ["commit", "results_checksum"])
+def test_resume_rejects_incompatible_checkpoint_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tamper: str
+) -> None:
+    calls = 0
+
+    def interrupted_workflow(dataset: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise KeyboardInterrupt("injected interruption")
+        return _workflow_result(dataset)
+
+    monkeypatch.setattr(runner, "_git_commit", lambda: "commit-a")
+    monkeypatch.setattr(runner, "run_full_workflow", interrupted_workflow)
+    output = tmp_path / f"provenance-{tamper}"
+    with pytest.raises(KeyboardInterrupt, match="injected interruption"):
+        runner.run_localized_network(CONFIG_PATH, output, 20)
+
+    if tamper == "commit":
+        monkeypatch.setattr(runner, "_git_commit", lambda: "commit-b")
+    else:
+        rows = _read_rows(output / "results.csv")
+        rows[0]["true_rho"] = "0.06"
+        with (output / "results.csv").open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.DictWriter(stream, fieldnames=CSV_FIELDS)
+            writer.writeheader()
+            writer.writerows(rows)
+
+    monkeypatch.setattr(
+        runner,
+        "run_full_workflow",
+        lambda dataset, **kwargs: _workflow_result(dataset),
+    )
+    with pytest.raises(ValueError, match="provenance|checksum"):
+        runner.run_localized_network(CONFIG_PATH, output, 20)
+
+
 def test_generation_and_workflow_errors_are_rows_and_shard_continues(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

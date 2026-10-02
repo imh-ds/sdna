@@ -89,6 +89,47 @@ def _git_commit() -> str | None:
         return None
 
 
+def _validate_resume_provenance(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    p_shard: int | None,
+    git_commit: str | None,
+) -> None:
+    """Reject persisted rows that cannot be tied to this exact run contract."""
+    metadata_path = output_dir / "results.metadata.json"
+    if not metadata_path.is_file():
+        raise ValueError("existing results.csv has no provenance metadata")
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError("existing results metadata is unreadable") from error
+    expected_metadata = {
+        "study": manifest["study"],
+        "manifest_checksum": localized_manifest_checksum(manifest),
+        "git_commit": git_commit,
+        "package_version": __version__,
+        "python_version": sys.version.split()[0],
+        "numpy_version": np.__version__,
+        "p_shard": p_shard,
+    }
+    if not isinstance(metadata, dict) or any(
+        metadata.get(field) != expected
+        for field, expected in expected_metadata.items()
+    ):
+        raise ValueError("existing results have incompatible run provenance")
+    file_hashes = metadata.get("files")
+    if not isinstance(file_hashes, dict):
+        raise ValueError("existing results metadata has no file checksums")
+    for name in ("results.csv", "shard_status.json"):
+        path = output_dir / name
+        expected_hash = file_hashes.get(name)
+        if not isinstance(expected_hash, str) or not path.is_file():
+            raise ValueError(f"existing checkpoint is missing {name} or its checksum")
+        actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual_hash != expected_hash:
+            raise ValueError(f"existing checkpoint {name} checksum mismatch")
+
+
 def _base_row(job: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
     edge = FOCAL_EDGES[job["focal_context"]]
     return {
@@ -229,8 +270,10 @@ def run_localized_network(
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     results_path = output / "results.csv"
+    git_commit = _git_commit()
     rows: list[dict[str, Any]] = []
     if results_path.exists():
+        _validate_resume_provenance(output, manifest, p_shard, git_commit)
         with results_path.open(newline="", encoding="utf-8") as stream:
             reader = csv.DictReader(stream)
             if reader.fieldnames != RESULT_FIELDNAMES:
@@ -256,7 +299,6 @@ def run_localized_network(
         "elapsed_seconds": 0.0,
         "started_at_utc": started_at,
     }
-    git_commit = _git_commit()
     _checkpoint(output, rows, status, manifest, p_shard, started_at, git_commit)
 
     grouped: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
