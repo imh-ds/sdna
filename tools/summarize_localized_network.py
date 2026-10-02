@@ -325,6 +325,8 @@ def _validate_rows(
                 row[field] = _number(row[field], field, optional=True)
             if row["lambda"] is not None and not 0.0 <= row["lambda"] <= 1.0:
                 raise ValueError("lambda must be within [0, 1]")
+            if row["observed_rho"] is not None and not -1.0 <= row["observed_rho"] <= 1.0:
+                raise ValueError("observed_rho must be within [-1, 1]")
             if condition == "clean":
                 try:
                     row["reference_tail_probability"] = _number(
@@ -343,8 +345,8 @@ def _validate_rows(
                 value = row[field]
                 if value is not None and not 0.0 <= value <= 1.0:
                     raise ValueError(f"{field} must be within [0, 1]")
-            if row["condition_number"] is not None and row["condition_number"] <= 0.0:
-                raise ValueError("condition_number must be positive")
+            if row["condition_number"] is not None and row["condition_number"] < 1.0:
+                raise ValueError("condition_number must be at least 1")
             fit_completed = (
                 row["workflow_status"] != "error"
                 or row["error_stage"] not in {"generation", "fit", "workflow"}

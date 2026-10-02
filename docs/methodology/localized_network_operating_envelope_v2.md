@@ -17,8 +17,9 @@ recorded only when fitting succeeds. Cell summaries report mean, minimum, and
 maximum condition number, each with valid-row and scheduled-row counts. The
 estimated shrinkage intensity (`lambda`) receives the same cell summaries.
 Successful-fit rows must contain the estimated shrinkage, condition number,
-and focal estimate; shrinkage must be within `[0, 1]` and condition number
-positive. Missing values are permitted only when fitting did not complete.
+and focal estimate; shrinkage must be within `[0, 1]`, condition number must be
+at least `1`, and the focal partial correlation must be within `[-1, 1]`.
+Missing values are permitted only when fitting did not complete.
 Fit failures retain missing numerical diagnostics and remain counted in the
 scheduled denominator; they are not encoded as zero.
 

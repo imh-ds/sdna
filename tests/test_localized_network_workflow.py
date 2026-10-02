@@ -123,6 +123,8 @@ def test_v2_records_review_corrections_without_rewriting_v1() -> None:
         "distinct run IDs",
         "github-run.txt",
         "successful-fit rows must contain the estimated shrinkage",
+        "condition number must be\nat least `1`",
+        "within `[-1, 1]`",
         "elapsed_seconds",
         "exact match",
     ):

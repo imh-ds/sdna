@@ -503,6 +503,7 @@ def test_summarizer_accepts_actual_runner_generation_error_rows(
     "missing_shard", "duplicate", "missing_arm", "seed", "digest", "truth",
     "case_json", "checksum", "commit_format", "commit_mismatch", "condition_number",
     "influence_error_metrics", "missing_condition_number", "shrinkage_range",
+    "condition_number_below_one", "observed_rho_range",
     "generation_error_digest",
 ])
 def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path, mutation: str) -> None:
@@ -589,6 +590,10 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
             rows[0]["condition_number"] = ""
         elif mutation == "shrinkage_range":
             rows[0]["lambda"] = "1.5"
+        elif mutation == "condition_number_below_one":
+            rows[0]["condition_number"] = "0.5"
+        elif mutation == "observed_rho_range":
+            rows[0]["observed_rho"] = "1.01"
         elif mutation == "influence_error_metrics":
             for row in rows:
                 if (
@@ -627,11 +632,15 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
     elif mutation == "generation_error_digest":
         assert any("generation errors must not claim a dataset digest" in item["reason"] for item in report["shard_issues"])
     elif mutation == "condition_number":
-        assert any("condition_number must be positive" in item["reason"] for item in report["shard_issues"])
+        assert any("condition_number must be at least 1" in item["reason"] for item in report["shard_issues"])
     elif mutation == "missing_condition_number":
         assert any("successful fits require numerical diagnostics" in item["reason"] for item in report["shard_issues"])
     elif mutation == "shrinkage_range":
         assert any("lambda must be within [0, 1]" in item["reason"] for item in report["shard_issues"])
+    elif mutation == "condition_number_below_one":
+        assert any("condition_number must be at least 1" in item["reason"] for item in report["shard_issues"])
+    elif mutation == "observed_rho_range":
+        assert any("observed_rho must be within [-1, 1]" in item["reason"] for item in report["shard_issues"])
     elif mutation == "influence_error_metrics":
         assert any("influence errors must not contain influence metrics" in item["reason"] for item in report["shard_issues"])
     elif mutation == "duplicate":
