@@ -1241,3 +1241,30 @@ implementation consequence rather than silently changing an earlier record.
   addendum, since this entry cannot contain the SHA of its own commit.
 - **Status:** Implemented locally and under final verification. Hosted
   baseline/matched-rerun execution and empirical findings remain pending.
+
+### ADR-027 implementation provenance addendum
+
+- **Exact implementation commits:** `97d8e32` accepts and retains influence
+  stage errors as scheduled outcomes; `d9ac6bb` carries the fitted condition
+  number into result rows and adds cell-level shrinkage/condition summaries;
+  `521ba63` adds deterministic matched-rerun comparison, the manual two-run
+  Actions flow, and the v2 acceptance addendum; `ad19a22` requires complete
+  successful-fit diagnostics, rejects metrics attached to influence failures,
+  checksums the hosted run-identity file, and requires distinct GitHub run IDs
+  in matched artifacts.
+- **Why the final hardening commit exists:** Independent review of `521ba63`
+  found that optional fit diagnostics could still pass acceptance and copied
+  shard directories could masquerade as a second run. `ad19a22` makes both
+  contracts enforceable and preserves baseline/rerun run IDs in the report.
+- **Review files:** `tools/summarize_localized_network.py`,
+  `tools/run_localized_network.py`, `simulations/full_workflow.py`,
+  `.github/workflows/localized-network.yml`,
+  `tests/test_localized_network_summary.py`,
+  `tests/test_localized_network_runner.py`,
+  `tests/test_localized_network_workflow.py`, and
+  `docs/methodology/localized_network_operating_envelope_v2.md`.
+- **Verification at `ad19a22`:** Python 3.14 full repository suite: 359
+  passed; compileall passed; focused hosted workflow YAML parse passed. Ruff
+  and mypy were not available in the local interpreter and remain for PR CI.
+  Independent re-review of the final hardening is pending; no hosted study run
+  has occurred.
