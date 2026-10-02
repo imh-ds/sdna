@@ -498,7 +498,7 @@ def _cell_summary(
         "available_rows": len(rows),
         "replication_count": len({row["replication"] for row in rows}),
         **metrics,
-        "clean_invalid_reference_rows": scheduled - len(clean_valid) if condition == "clean" else 0,
+        "clean_invalid_reference_rows": len(clean_rows) - len(clean_valid) if condition == "clean" else 0,
         "unreached_rows": sum(row["fragility_status"] == "unreached" for row in rows),
         "fragility_error_rows": sum(row["fragility_status"] == "error" for row in rows),
         "certification_error_rows": sum(row["certification_status"] == "error" for row in rows),

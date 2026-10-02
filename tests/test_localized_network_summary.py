@@ -506,3 +506,46 @@ def test_partial_timeout_shard_writes_summary_for_available_valid_rows(tmp_path:
     assert incomplete_cell["scheduled_rows"] == 10
     assert incomplete_cell["available_rows"] < 10
     assert (tmp_path / "summary" / "summary.json").is_file()
+
+
+def test_unavailable_clean_rows_are_not_counted_as_invalid_references(tmp_path: Path) -> None:
+    shards = _make_shards(tmp_path / "shards")
+    results_path = shards[0] / "results.csv"
+    with results_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    removed = 0
+    retained: list[dict[str, str]] = []
+    for row in rows:
+        selected = (
+            row["N"] == "50"
+            and row["focal_context"] == "within_community"
+            and row["condition"] == "clean"
+            and row["arm"] == "baseline_cap2"
+            and row["replication"] in {"5", "6", "7", "8", "9"}
+        )
+        if selected:
+            removed += 1
+        else:
+            retained.append(row)
+    assert removed == 5
+    with results_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=FIELDS)
+        writer.writeheader()
+        writer.writerows(retained)
+    status_path = shards[0] / "shard_status.json"
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    status.update(status="incomplete", completed_rows=len(retained))
+    status_path.write_text(json.dumps(status), encoding="utf-8")
+    _refresh_metadata(shards[0])
+
+    report = summarize_localized_network(shards, CONFIG, tmp_path / "summary")
+    cell = next(
+        cell for cell in report["cells"]
+        if cell["N"] == 50 and cell["p"] == 20
+        and cell["focal_context"] == "within_community"
+        and cell["condition"] == "clean" and cell["arm"] == "baseline_cap2"
+    )
+    assert report["acceptance_status"] == "incomplete"
+    assert cell["scheduled_rows"] == 10
+    assert cell["available_rows"] == 5
+    assert cell["clean_invalid_reference_rows"] == 0
