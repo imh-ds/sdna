@@ -7,6 +7,7 @@ import csv
 import hashlib
 import json
 import math
+import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -154,6 +155,8 @@ def _load_shard(
             raise ValueError("results metadata is missing runner provenance fields")
         if not isinstance(metadata["git_commit"], str) or not metadata["git_commit"]:
             raise ValueError("metadata git_commit must identify the source commit")
+        if not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", metadata["git_commit"]):
+            raise ValueError("metadata git_commit must be a full hexadecimal Git object ID")
         for field in ("package_version", "python_version", "numpy_version"):
             if not isinstance(metadata[field], str) or not metadata[field]:
                 raise ValueError(f"metadata {field} must be a nonempty string")
@@ -231,6 +234,7 @@ def _validate_rows(
                 row["condition"],
                 _integer(row["replication"], "replication"),
             )
+            generation_failed = row["error_stage"] == "generation" and row["workflow_status"] == "error"
             if key in seen:
                 duplicate_count += 1
                 raise ValueError("duplicate arm/pairing key")
@@ -240,10 +244,16 @@ def _validate_rows(
                 raise ValueError("row key is not in this frozen p shard")
             for field in (
                 "N", "p", "replication", "data_seed", "focal_i", "focal_j",
-                "module_count", "contamination_count", "search_cap",
+                "module_count", "search_cap",
                 "certification_combination_budget",
             ):
                 row[field] = _integer(row[field], field)
+            if generation_failed and not str(row["contamination_count"]).strip():
+                row["contamination_count"] = None
+            else:
+                row["contamination_count"] = _integer(
+                    row["contamination_count"], "contamination_count"
+                )
             for field in ("calibration_seed", "bootstrap_seed", "certification_combinations_checked"):
                 row[field] = _integer(row[field], field) if str(row[field]).strip() else None
             if row["data_seed"] != job["data_seed"]:
@@ -257,7 +267,6 @@ def _validate_rows(
                 raise ValueError("calibration requirement does not match manifest")
             digest_value = str(row["dataset_digest"]).strip()
             digest = digest_value or None
-            generation_failed = row["error_stage"] == "generation" and row["workflow_status"] == "error"
             if digest is None and not generation_failed:
                 raise ValueError("dataset_digest is missing outside a generation error")
             if digest is not None and (
@@ -275,10 +284,13 @@ def _validate_rows(
             expected_rho = float(population.partial_correlation[focal_i, focal_j])
             if not math.isclose(true_rho, expected_rho, rel_tol=0.0, abs_tol=1e-12):
                 raise ValueError("true_rho does not match the DGP focal edge")
-            try:
-                case_indices = json.loads(row["planted_case_indices"])
-            except json.JSONDecodeError as error:
-                raise ValueError("planted_case_indices is malformed JSON") from error
+            if generation_failed and not str(row["planted_case_indices"]).strip():
+                case_indices = []
+            else:
+                try:
+                    case_indices = json.loads(row["planted_case_indices"])
+                except json.JSONDecodeError as error:
+                    raise ValueError("planted_case_indices is malformed JSON") from error
             if not isinstance(case_indices, list) or any(isinstance(i, bool) or not isinstance(i, int) for i in case_indices):
                 raise ValueError("planted_case_indices must be a JSON integer array")
             expected_case_count = {"clean": 0, "single_case": 1, "coalition": 3}[condition]
@@ -289,7 +301,9 @@ def _validate_rows(
                 i < 0 or i >= row["N"] for i in case_indices
             ) or case_indices != sorted(case_indices):
                 raise ValueError("planted case indices do not match the condition or N")
-            if row["contamination_count"] != expected_case_count:
+            if generation_failed and row["contamination_count"] is not None:
+                raise ValueError("generation errors must leave contamination_count unavailable")
+            if not generation_failed and row["contamination_count"] != expected_case_count:
                 raise ValueError("contamination_count does not match the condition")
             for field, allowed in _STATUS_VALUES.items():
                 if row[field] not in allowed:
@@ -324,7 +338,9 @@ def _validate_rows(
             row["elapsed_seconds"] = _number(row["elapsed_seconds"], "elapsed_seconds")
             if row["elapsed_seconds"] < 0:
                 raise ValueError("elapsed_seconds must be nonnegative")
-            if _integer(row["contamination_status"], "contamination_status") != int(expected_case_count > 0):
+            if generation_failed and str(row["contamination_status"]).strip():
+                raise ValueError("generation errors must leave contamination_status unavailable")
+            if not generation_failed and _integer(row["contamination_status"], "contamination_status") != int(expected_case_count > 0):
                 raise ValueError("contamination_status does not match condition")
             if row["fragility_status"] == "reached" and row["reached"] is not True:
                 raise ValueError("reached status requires reached=true")
@@ -387,7 +403,10 @@ def _validate_rows(
         if len(contexts) != 6:
             issue = issue or f"context group {key} does not contain three paired focal contexts"
             continue
-        for field in ("data_seed", "dataset_digest", "planted_case_indices"):
+        shared_context_fields = ["data_seed", "planted_case_indices"]
+        if key[2] == "clean":
+            shared_context_fields.append("dataset_digest")
+        for field in shared_context_fields:
             if len({str(row[field]) for row in contexts}) != 1:
                 issue = issue or f"focal contexts disagree on {field} for {key}"
                 invalid_pair_keys.update(

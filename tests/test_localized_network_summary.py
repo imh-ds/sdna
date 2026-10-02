@@ -12,6 +12,7 @@ import pytest
 
 from simulations.localized_network_dgp import build_localized_population
 from simulations.full_workflow import derive_workflow_seeds
+from tools import run_localized_network as runner
 from tools.run_localized_network import RESULT_FIELDNAMES
 from tools.localized_network_manifest import (
     expand_localized_jobs,
@@ -129,7 +130,10 @@ def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
                 "calibration_seed": seeds.calibration,
                 "bootstrap_seed": seeds.bootstrap,
                 "dataset_digest": hashlib.sha256(
-                    f"{job['N']}:{p}:{job['condition']}:{job['replication']}".encode()
+                    (
+                        f"{job['N']}:{p}:{job['condition']}:{job['replication']}"
+                        + (f":{job['focal_context']}" if contaminated else "")
+                    ).encode()
                 ).hexdigest(),
                 "focal_i": focal_i,
                 "focal_j": focal_j,
@@ -193,7 +197,9 @@ def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
             if generation_failed:
                 row.update(
                     dataset_digest="",
-                    planted_case_indices="[]",
+                    planted_case_indices="",
+                    contamination_count="",
+                    contamination_status="",
                     observed_rho="",
                     **{"lambda": ""},
                     certified="",
@@ -301,11 +307,41 @@ def test_generation_error_rows_remain_valid_scheduled_outcomes(tmp_path: Path) -
     assert report["overall"]["workflow_status_counts"]["error"] == 6
 
 
-@pytest.mark.parametrize("mutation", ["missing_shard", "duplicate", "missing_arm", "seed", "digest", "truth", "case_json", "checksum"])
+def test_summarizer_accepts_actual_runner_generation_error_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_generation(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("injected generation failure")
+
+    monkeypatch.setattr(runner, "generate_localized_dataset", fail_generation)
+    output = tmp_path / "runner-p20"
+    status = runner.run_localized_network(CONFIG, output, 20)
+    report = summarize_localized_network([output], CONFIG, tmp_path / "summary")
+
+    assert status["status"] == "complete"
+    assert report["acceptance_status"] == "incomplete"  # p=40 and p=60 are absent
+    assert report["valid_rows"] == 540
+    assert report["overall"]["workflow_status_counts"] == {"error": 540}
+    assert not any(issue["p"] == 20 for issue in report["shard_issues"])
+
+
+@pytest.mark.parametrize("mutation", [
+    "missing_shard", "duplicate", "missing_arm", "seed", "digest", "truth",
+    "case_json", "checksum", "commit_format", "commit_mismatch",
+])
 def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path, mutation: str) -> None:
     shards = _make_shards(tmp_path / "shards")
     if mutation == "missing_shard":
         shards = shards[:2]
+    elif mutation in {"commit_format", "commit_mismatch"}:
+        changed_shards = shards if mutation == "commit_format" else shards[:1]
+        for shard in changed_shards:
+            metadata_path = shard / "results.metadata.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata["git_commit"] = (
+                "placeholder" if mutation == "commit_format" else "b" * 40
+            )
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
     else:
         target = shards[0] / "results.csv"
         with target.open(newline="", encoding="utf-8") as handle:
@@ -334,7 +370,12 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
             _refresh_metadata(shards[0])
     report = summarize_localized_network(shards, CONFIG, tmp_path / "summary")
     assert report["acceptance_status"] == "incomplete"
-    if mutation == "duplicate":
+    if mutation == "commit_format":
+        assert any("git_commit" in item["reason"] for item in report["shard_issues"])
+    elif mutation == "commit_mismatch":
+        assert report["valid_rows"] == 1620
+        assert any("provenance differs" in item["reason"] for item in report["shard_issues"])
+    elif mutation == "duplicate":
         assert report["valid_rows"] == 1620
         assert report["duplicate_arm_pairing_rows"] == 1
     else:
