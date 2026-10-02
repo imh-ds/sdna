@@ -1200,3 +1200,38 @@ implementation consequence rather than silently changing an earlier record.
 - **Status:** This provenance addendum is documentation only. No hosted run
   has been dispatched; Task 6 review/integration and Task 7 execution remain
   pending.
+
+### ADR-027 — Task 27 review corrections and matched-rerun acceptance
+
+- **Context:** Independent Task 6 review found that valid influence-stage
+  failures were rejected by the summarizer, the pre-specified matrix condition
+  diagnostic was not present in artifacts, and matched-rerun reproducibility
+  was stated as an acceptance requirement but had no executable comparison
+  path. These gaps were found before any hosted Task 27 run, so no empirical
+  data or prior decision is being overwritten.
+- **Decision:** Preserve the v1 matrix and estimands. Treat a contaminated-row
+  influence failure as a valid scheduled workflow error. Record the fitted
+  shrinkage-correlation condition number per row and summarize both it and
+  shrinkage by cell with mean, minimum, maximum, and valid/scheduled counts.
+  Make final technical acceptance require a second complete run whose
+  deterministic row fields exactly match the baseline, excluding elapsed time;
+  require matching commit and software/configuration provenance. A complete
+  first run is explicitly `awaiting_matched_rerun`, not accepted complete.
+- **Rationale:** Failure outcomes must remain in the denominator, numerical
+  boundary diagnostics must be available where the design promised them, and
+  reproducibility should be checked on the actual artifacts rather than
+  inferred only from seed derivation. Runtime is intentionally excluded from
+  exact comparison. No failure or mismatch is converted to zero or dropped.
+- **Protocol:** The frozen v1 design remains unchanged. The operational
+  acceptance method is described in
+  `docs/methodology/localized_network_operating_envelope_v2.md`; v1 is retained
+  as the original pre-run protocol.
+- **Implementation and tests:** `tools/summarize_localized_network.py`,
+  `tools/run_localized_network.py`, `simulations/full_workflow.py`,
+  `.github/workflows/localized-network.yml`, and the Task 27 runner, summary,
+  full-workflow, and Actions contract tests. Review findings are in the Task 6
+  independent review returned on 2026-10-02. Exact commit SHAs for the
+  implementation and this record are added in a subsequent provenance
+  addendum, since this entry cannot contain the SHA of its own commit.
+- **Status:** Implemented locally and under final verification. Hosted
+  baseline/matched-rerun execution and empirical findings remain pending.

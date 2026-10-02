@@ -2,6 +2,12 @@ name: SDNA localized-network operating-envelope study
 
 on:
   workflow_dispatch:
+    inputs:
+      matched_rerun_run_id:
+        description: "Completed baseline run ID to compare against; leave blank for the baseline run."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -72,8 +78,10 @@ jobs:
         env:
           AGGREGATE_DIR: ${{ runner.temp }}/localized-network-aggregate
           DOWNLOADED_DIR: ${{ runner.temp }}/localized-network-downloaded-shards
+          BASELINE_DIR: ${{ runner.temp }}/localized-network-baseline-shards
         run: |
           mkdir -p "$AGGREGATE_DIR" "$DOWNLOADED_DIR"
+          mkdir -p "$BASELINE_DIR"
           {
             echo "workflow=$GITHUB_WORKFLOW"
             echo "run_id=$GITHUB_RUN_ID"
@@ -103,12 +111,24 @@ jobs:
           path: ${{ runner.temp }}/localized-network-downloaded-shards
           merge-multiple: false
 
+      - name: Download baseline shards for matched-rerun acceptance
+        if: ${{ inputs.matched_rerun_run_id != '' }}
+        uses: actions/download-artifact@v7.0.1
+        with:
+          pattern: localized-network-p*-${{ inputs.matched_rerun_run_id }}
+          run-id: ${{ inputs.matched_rerun_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/localized-network-baseline-shards
+          merge-multiple: false
+
       - name: Summarize available shards and retain incomplete status
         if: always()
         continue-on-error: true
         env:
           AGGREGATE_DIR: ${{ runner.temp }}/localized-network-aggregate
           DOWNLOADED_DIR: ${{ runner.temp }}/localized-network-downloaded-shards
+          BASELINE_DIR: ${{ runner.temp }}/localized-network-baseline-shards
+          MATCHED_RERUN_RUN_ID: ${{ inputs.matched_rerun_run_id }}
         run: |
           mapfile -t shard_dirs < <(find "$DOWNLOADED_DIR" -mindepth 1 -maxdepth 1 -type d -name 'localized-network-p*' -print | sort)
           if [ "${#shard_dirs[@]}" -eq 0 ]; then
@@ -125,6 +145,16 @@ jobs:
           for shard_dir in "${shard_dirs[@]}"; do
             shard_args+=(--shard "$shard_dir")
           done
+          if [ -n "$MATCHED_RERUN_RUN_ID" ]; then
+            mapfile -t baseline_dirs < <(find "$BASELINE_DIR" -mindepth 1 -maxdepth 1 -type d -name 'localized-network-p*' -print | sort)
+            if [ "${#baseline_dirs[@]}" -eq 0 ]; then
+              mkdir -p "$BASELINE_DIR/no-matched-rerun-artifacts"
+              baseline_dirs=("$BASELINE_DIR/no-matched-rerun-artifacts")
+            fi
+            for shard_dir in "${baseline_dirs[@]}"; do
+              shard_args+=(--matched-rerun-shard "$shard_dir")
+            done
+          fi
           python -m tools.summarize_localized_network \
             --config simulations/configs/localized_network_v1.json \
             --output-dir "$AGGREGATE_DIR" \
@@ -143,5 +173,6 @@ jobs:
         if: always()
         env:
           AGGREGATE_DIR: ${{ runner.temp }}/localized-network-aggregate
+          MATCHED_RERUN_RUN_ID: ${{ inputs.matched_rerun_run_id }}
         run: >-
-          python -c "import json, os; from pathlib import Path; summary = Path(os.environ['AGGREGATE_DIR']) / 'summary.json'; complete = summary.is_file() and json.loads(summary.read_text(encoding='utf-8')).get('acceptance_status') == 'complete'; raise SystemExit(0 if complete else 1)"
+          python -c "import json, os; from pathlib import Path; summary = Path(os.environ['AGGREGATE_DIR']) / 'summary.json'; status = json.loads(summary.read_text(encoding='utf-8')).get('acceptance_status') if summary.is_file() else None; acceptable = status == 'complete' or (status == 'awaiting_matched_rerun' and not os.environ['MATCHED_RERUN_RUN_ID']); raise SystemExit(0 if acceptable else 1)"

@@ -12,6 +12,7 @@ from tools.localized_network_manifest import localized_manifest_checksum
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/localized-network.yml"
 METHODOLOGY = ROOT / "docs/methodology/localized_network_operating_envelope_v1.md"
+METHODOLOGY_V2 = ROOT / "docs/methodology/localized_network_operating_envelope_v2.md"
 DECISIONS = ROOT / "docs/development/decisions.md"
 MANIFEST = ROOT / "simulations/configs/localized_network_v1.json"
 
@@ -19,6 +20,12 @@ MANIFEST = ROOT / "simulations/configs/localized_network_v1.json"
 def test_workflow_is_manual_fixed_matrix_and_retains_failed_shards() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
 
+    assert "matched_rerun_run_id" in text
+    assert "--matched-rerun-shard" in text
+    assert "run-id: ${{ inputs.matched_rerun_run_id }}" in text
+    assert "github-token: ${{ secrets.GITHUB_TOKEN }}" in text
+    assert "awaiting_matched_rerun" in text
+    assert "status == 'complete'" in text
     assert re.search(r"(?m)^on:\s*\n\s+workflow_dispatch:\s*$", text)
     for forbidden in ("schedule:", "push:", "pull_request:"):
         assert forbidden not in text
@@ -101,3 +108,21 @@ def test_v1_protocol_and_prerun_decision_are_prespecified_and_scoped() -> None:
         "localized_network_operating_envelope_v1.md",
     ):
         assert file_name in decisions
+
+
+def test_v2_records_review_corrections_without_rewriting_v1() -> None:
+    protocol_v1 = METHODOLOGY.read_text(encoding="utf-8")
+    protocol_v2 = METHODOLOGY_V2.read_text(encoding="utf-8")
+    decisions = DECISIONS.read_text(encoding="utf-8")
+
+    assert "right-censored reference tails" in protocol_v1
+    for phrase in (
+        "condition_number",
+        "awaiting_matched_rerun",
+        "matched_rerun_run_id",
+        "elapsed_seconds",
+        "exact match",
+    ):
+        assert phrase.casefold() in protocol_v2.casefold()
+    assert "ADR-027" in decisions
+    assert "independent task 6 review" in decisions.casefold()

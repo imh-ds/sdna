@@ -38,6 +38,7 @@ FIELDNAMES = (
     "elapsed_seconds"
 ).split(",")
 _ARM_NAMES = {"baseline_cap2", "diagnostic_cap4"}
+_ROW_KEY_FIELDS = ("arm", "N", "p", "focal_context", "condition", "replication")
 _STATUS_VALUES = {
     "fragility_status": {"reached", "unreached", "error"},
     "certification_status": {"certified", "not_certified", "skipped_unreached", "error"},
@@ -528,6 +529,102 @@ def _cell_summary(
     return result
 
 
+def compare_localized_network_rerun(
+    primary_shard_dirs: Sequence[str | Path],
+    rerun_shard_dirs: Sequence[str | Path],
+    config_path: str | Path,
+) -> dict[str, Any]:
+    """Compare deterministic row fields from two complete matched runs."""
+    manifest = load_localized_manifest(config_path)
+    expected_by_key = {
+        (job["arm"], job["N"], job["p"], job["focal_context"], job["condition"], job["replication"]): job
+        for job in expand_localized_jobs(manifest)
+    }
+    primary_paths = {Path(path).resolve() for path in primary_shard_dirs}
+    rerun_paths = {Path(path).resolve() for path in rerun_shard_dirs}
+    if not primary_paths or not rerun_paths or primary_paths & rerun_paths:
+        return {
+            "status": "invalid", "compared_rows": 0, "mismatch_count": 0,
+            "mismatches": [], "issues": ["two distinct, nonempty shard sets are required"],
+        }
+
+    def load_run(
+        paths: Sequence[str | Path], label: str
+    ) -> tuple[dict[tuple[Any, ...], dict[str, Any]], list[dict[str, Any]], list[str]]:
+        row_map: dict[tuple[Any, ...], dict[str, Any]] = {}
+        metadata_records: list[dict[str, Any]] = []
+        issues: list[str] = []
+        observed_p: set[int] = set()
+        for path in paths:
+            try:
+                p, rows, metadata, issue = _load_shard(Path(path), manifest, expected_by_key)
+            except (ValueError, OSError) as error:
+                issues.append(f"{label}: {error}")
+                continue
+            if p in observed_p:
+                issues.append(f"{label}: duplicate p={p} shard")
+                continue
+            observed_p.add(p)
+            if issue:
+                issues.append(f"{label} p={p}: {issue}")
+            metadata_records.append(metadata)
+            for row in rows:
+                key = tuple(row[field] for field in _ROW_KEY_FIELDS)
+                if key in row_map:
+                    issues.append(f"{label}: duplicate row key {key}")
+                row_map[key] = row
+        if observed_p != set(manifest["p_values"]):
+            issues.append(f"{label}: expected p shards {manifest['p_values']}, observed {sorted(observed_p)}")
+        if len(row_map) != manifest["expected_rows"]:
+            issues.append(f"{label}: expected {manifest['expected_rows']} valid unique rows, found {len(row_map)}")
+        provenance_fields = (
+            "git_commit", "package_version", "python_version", "numpy_version", "manifest_checksum"
+        )
+        identities = {
+            tuple(metadata.get(field) for field in provenance_fields)
+            for metadata in metadata_records
+        }
+        if len(identities) != 1:
+            issues.append(f"{label}: shard provenance is incomplete or inconsistent")
+        return row_map, metadata_records, issues
+
+    primary_rows, primary_metadata, primary_issues = load_run(primary_shard_dirs, "primary")
+    rerun_rows, rerun_metadata, rerun_issues = load_run(rerun_shard_dirs, "matched rerun")
+    issues = [*primary_issues, *rerun_issues]
+    if not issues:
+        provenance_fields = (
+            "git_commit", "package_version", "python_version", "numpy_version", "manifest_checksum"
+        )
+        primary_provenance = tuple(primary_metadata[0].get(field) for field in provenance_fields)
+        rerun_provenance = tuple(rerun_metadata[0].get(field) for field in provenance_fields)
+        if primary_provenance != rerun_provenance:
+            issues.append("matched runs differ in Git, software, or manifest provenance")
+    mismatches: list[dict[str, Any]] = []
+    mismatch_count = 0
+    if not issues:
+        deterministic_fields = [field for field in FIELDNAMES if field != "elapsed_seconds"]
+        for key in sorted(primary_rows):
+            left, right = primary_rows[key], rerun_rows.get(key)
+            if right is None:
+                mismatch_count += 1
+                if len(mismatches) < 100:
+                    mismatches.append({"row_key": list(key), "field": "missing_row"})
+                continue
+            for field in deterministic_fields:
+                if left[field] != right[field]:
+                    mismatch_count += 1
+                    if len(mismatches) < 100:
+                        mismatches.append({"row_key": list(key), "field": field})
+    return {
+        "status": "invalid" if issues else ("matched" if mismatch_count == 0 else "mismatch"),
+        "compared_rows": len(primary_rows) if not issues else 0,
+        "mismatch_count": mismatch_count,
+        "mismatches": mismatches,
+        "issues": issues,
+        "excluded_from_comparison": ["elapsed_seconds"],
+    }
+
+
 def _markdown(report: Mapping[str, Any]) -> str:
     lines = [
         "# Task 27 localized-network operating-envelope summary",
@@ -538,6 +635,7 @@ def _markdown(report: Mapping[str, Any]) -> str:
         "",
         "Cap 2 is the primary operating workflow; cap 4 is diagnostic sensitivity evidence.",
         "Incomplete shards and invalid rows are retained in the acceptance accounting.",
+        f"Matched rerun: {report['matched_rerun']['status']} ({report['matched_rerun']['compared_rows']} rows; elapsed_seconds excluded).",
         "",
         "## Cell summaries",
         "",
@@ -569,6 +667,7 @@ def summarize_localized_network(
     config_path: str | Path,
     output_dir: str | Path,
     validate: bool = True,
+    matched_rerun_shard_dirs: Sequence[str | Path] | None = None,
 ) -> dict[str, Any]:
     """Validate shard artifacts and write aggregate JSON and Markdown summaries."""
     manifest = load_localized_manifest(config_path)
@@ -643,16 +742,30 @@ def summarize_localized_network(
         )
         for key in sorted(scheduled_by_cell)
     ]
-    complete = (
+    matrix_complete = (
         len(rows) == manifest["expected_rows"]
         and len(observed_keys) == manifest["expected_rows"]
         and not shard_issues
         and len(observed_p) == len(manifest["p_values"])
     )
+    matched_rerun = (
+        compare_localized_network_rerun(shard_dirs, matched_rerun_shard_dirs, config_path)
+        if matched_rerun_shard_dirs is not None
+        else {
+            "status": "not_provided", "compared_rows": 0, "mismatch_count": 0,
+            "mismatches": [], "issues": [],
+        }
+    )
+    complete = matrix_complete and matched_rerun["status"] == "matched"
     report: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "study": manifest["study"],
-        "acceptance_status": "complete" if complete else "incomplete",
+        "acceptance_status": (
+            "complete" if complete else
+            "awaiting_matched_rerun" if matrix_complete and matched_rerun["status"] == "not_provided" else
+            "incomplete"
+        ),
+        "matched_rerun": matched_rerun,
         "expected_rows": manifest["expected_rows"],
         "expected_pairing_keys": manifest["expected_pairing_keys"],
         "valid_rows": len(rows),
@@ -700,12 +813,19 @@ def main() -> None:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--shard", type=Path, action="append", required=True, dest="shard_dirs")
+    parser.add_argument("--matched-rerun-shard", type=Path, action="append", dest="matched_rerun_shard_dirs")
     parser.add_argument("--no-validate", action="store_false", dest="validate")
     parser.set_defaults(validate=True)
     args = parser.parse_args()
-    report = summarize_localized_network(args.shard_dirs, args.config, args.output_dir, validate=args.validate)
-    print(json.dumps({key: report[key] for key in ("acceptance_status", "valid_rows", "expected_rows", "incomplete_shards")}, sort_keys=True))
-    if report["acceptance_status"] != "complete":
+    report = summarize_localized_network(
+        args.shard_dirs,
+        args.config,
+        args.output_dir,
+        validate=args.validate,
+        matched_rerun_shard_dirs=args.matched_rerun_shard_dirs,
+    )
+    print(json.dumps({key: report[key] for key in ("acceptance_status", "valid_rows", "expected_rows", "incomplete_shards", "matched_rerun")}, sort_keys=True))
+    if report["acceptance_status"] == "incomplete":
         raise SystemExit(1)
 
 

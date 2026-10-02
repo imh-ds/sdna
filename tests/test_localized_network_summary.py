@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import math
+import shutil
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,10 @@ from tools.localized_network_manifest import (
 )
 from tools.summarize_localized_network import FIELDNAMES as SUMMARY_FIELDS
 from tools.summarize_localized_network import main as summary_main
-from tools.summarize_localized_network import summarize_localized_network
+from tools.summarize_localized_network import (
+    compare_localized_network_rerun,
+    summarize_localized_network,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "simulations" / "configs" / "localized_network_v1.json"
@@ -257,25 +261,55 @@ def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
     return output
 
 
+def _copy_shards(shards: list[Path], root: Path) -> list[Path]:
+    root.mkdir(parents=True, exist_ok=True)
+    return [Path(shutil.copytree(shard, root / shard.name)) for shard in shards]
+
+
 def test_summary_csv_schema_matches_the_committed_task3_runner() -> None:
     assert SUMMARY_FIELDS == RESULT_FIELDNAMES
 
 
 def test_cli_writes_summary_for_runner_shard_arguments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     shards = _make_shards(tmp_path / "shards")
+    matched_rerun = _copy_shards(shards, tmp_path / "matched-rerun")
     arguments = ["summarize_localized_network.py", "--config", str(CONFIG), "--output-dir", str(tmp_path / "cli-summary")]
     for shard in shards:
         arguments.extend(("--shard", str(shard)))
+    for shard in matched_rerun:
+        arguments.extend(("--matched-rerun-shard", str(shard)))
     monkeypatch.setattr("sys.argv", arguments)
     summary_main()
     assert (tmp_path / "cli-summary" / "summary.json").is_file()
     assert (tmp_path / "cli-summary" / "summary.md").is_file()
 
 
+def test_cli_accepts_complete_baseline_while_marking_rerun_pending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shards = _make_shards(tmp_path / "shards")
+    arguments = [
+        "summarize_localized_network.py", "--config", str(CONFIG),
+        "--output-dir", str(tmp_path / "cli-summary"),
+    ]
+    for shard in shards:
+        arguments.extend(("--shard", str(shard)))
+    monkeypatch.setattr("sys.argv", arguments)
+
+    summary_main()
+
+    report = json.loads((tmp_path / "cli-summary" / "summary.json").read_text(encoding="utf-8"))
+    assert report["acceptance_status"] == "awaiting_matched_rerun"
+
+
 def test_full_shards_report_denominators_wilson_intervals_and_nulls(tmp_path: Path) -> None:
     shards = _make_shards(tmp_path / "shards")
-    report = summarize_localized_network(shards, CONFIG, tmp_path / "summary")
+    matched_rerun = _copy_shards(shards, tmp_path / "matched-rerun")
+    report = summarize_localized_network(
+        shards, CONFIG, tmp_path / "summary", matched_rerun_shard_dirs=matched_rerun
+    )
     assert report["acceptance_status"] == "complete"
+    assert report["schema_version"] == 2
     assert report["valid_rows"] == 1620
     cell = report["cells"][0]
     assert cell["reached_rate"]["numerator"] == 10
@@ -302,6 +336,14 @@ def test_full_shards_report_denominators_wilson_intervals_and_nulls(tmp_path: Pa
     assert (tmp_path / "summary" / "summary.md").is_file()
 
 
+def test_complete_matrix_waits_for_matched_rerun_before_acceptance(tmp_path: Path) -> None:
+    shards = _make_shards(tmp_path / "shards")
+    report = summarize_localized_network(shards, CONFIG, tmp_path / "summary")
+
+    assert report["acceptance_status"] == "awaiting_matched_rerun"
+    assert report["matched_rerun"]["status"] == "not_provided"
+
+
 def test_error_unreached_and_certification_exhaustion_are_separate(tmp_path: Path) -> None:
     shards = _make_shards(tmp_path / "shards", outcome="mixed")
     report = summarize_localized_network(shards, CONFIG, tmp_path / "summary")
@@ -314,7 +356,10 @@ def test_error_unreached_and_certification_exhaustion_are_separate(tmp_path: Pat
 
 def test_generation_error_rows_remain_valid_scheduled_outcomes(tmp_path: Path) -> None:
     shards = _make_shards(tmp_path / "shards", outcome="generation_error")
-    report = summarize_localized_network(shards, CONFIG, tmp_path / "summary")
+    matched_rerun = _copy_shards(shards, tmp_path / "matched-rerun")
+    report = summarize_localized_network(
+        shards, CONFIG, tmp_path / "summary", matched_rerun_shard_dirs=matched_rerun
+    )
     assert report["acceptance_status"] == "complete"
     assert report["valid_rows"] == 1620
     assert report["overall"]["workflow_status_counts"]["error"] == 6
@@ -344,13 +389,65 @@ def test_influence_stage_errors_remain_valid_scheduled_outcomes(tmp_path: Path) 
         writer.writeheader()
         writer.writerows(rows)
     _refresh_metadata(shards[0])
+    matched_rerun = _copy_shards(shards, tmp_path / "matched-rerun")
 
-    report = summarize_localized_network(shards, CONFIG, tmp_path / "summary")
+    report = summarize_localized_network(
+        shards, CONFIG, tmp_path / "summary", matched_rerun_shard_dirs=matched_rerun
+    )
 
     assert report["acceptance_status"] == "complete", report["shard_issues"]
     assert report["valid_rows"] == 1620
     assert report["overall"]["workflow_status_counts"]["error"] == 2
     assert not any(issue["p"] == 20 for issue in report["shard_issues"])
+
+
+def test_matched_rerun_compares_deterministic_fields_but_ignores_timing(
+    tmp_path: Path,
+) -> None:
+    primary = _make_shards(tmp_path / "primary")
+    rerun = _make_shards(tmp_path / "rerun")
+    for shard in rerun:
+        results_path = shard / "results.csv"
+        with results_path.open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        for row in rows:
+            row["elapsed_seconds"] = "999.0"
+        with results_path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=FIELDS)
+            writer.writeheader()
+            writer.writerows(rows)
+        _refresh_metadata(shard)
+
+    result = compare_localized_network_rerun(primary, rerun, CONFIG)
+
+    assert result["status"] == "matched"
+    assert result["compared_rows"] == 1620
+    assert result["mismatches"] == []
+
+
+def test_matched_rerun_rejects_changed_deterministic_result(tmp_path: Path) -> None:
+    primary = _make_shards(tmp_path / "primary")
+    rerun = _make_shards(tmp_path / "rerun")
+    results_path = rerun[0] / "results.csv"
+    with results_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    rows[0]["observed_rho"] = "0.123"
+    with results_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    _refresh_metadata(rerun[0])
+
+    result = compare_localized_network_rerun(primary, rerun, CONFIG)
+
+    assert result["status"] == "mismatch"
+    assert result["compared_rows"] == 1620
+    assert any(item["field"] == "observed_rho" for item in result["mismatches"])
+    report = summarize_localized_network(
+        primary, CONFIG, tmp_path / "summary", matched_rerun_shard_dirs=rerun
+    )
+    assert report["acceptance_status"] == "incomplete"
+    assert report["matched_rerun"]["status"] == "mismatch"
 
 
 def test_summarizer_accepts_actual_runner_generation_error_rows(
@@ -373,7 +470,7 @@ def test_summarizer_accepts_actual_runner_generation_error_rows(
 
 @pytest.mark.parametrize("mutation", [
     "missing_shard", "duplicate", "missing_arm", "seed", "digest", "truth",
-    "case_json", "checksum", "commit_format", "commit_mismatch",
+    "case_json", "checksum", "commit_format", "commit_mismatch", "condition_number",
     "generation_error_digest",
 ])
 def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path, mutation: str) -> None:
@@ -454,6 +551,8 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
             rows[0][{"seed": "calibration_seed", "digest": "dataset_digest", "truth": "true_rho", "case_json": "planted_case_indices"}[mutation]] = {
                 "seed": "7", "digest": "f" * 64, "truth": "0.2", "case_json": "not-json"
             }[mutation]
+        elif mutation == "condition_number":
+            rows[0]["condition_number"] = "0"
         with target.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=FIELDS)
             writer.writeheader()
@@ -477,6 +576,8 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
         assert any("provenance differs" in item["reason"] for item in report["shard_issues"])
     elif mutation == "generation_error_digest":
         assert any("generation errors must not claim a dataset digest" in item["reason"] for item in report["shard_issues"])
+    elif mutation == "condition_number":
+        assert any("condition_number must be positive" in item["reason"] for item in report["shard_issues"])
     elif mutation == "duplicate":
         assert report["valid_rows"] == 1620
         assert report["duplicate_arm_pairing_rows"] == 1
@@ -498,6 +599,7 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
 
 def test_clean_false_flags_exclude_invalid_reference_probabilities(tmp_path: Path) -> None:
     shards = _make_shards(tmp_path / "shards")
+    matched_rerun = _copy_shards(shards, tmp_path / "matched-rerun")
     target = shards[0] / "results.csv"
     with target.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
@@ -513,7 +615,9 @@ def test_clean_false_flags_exclude_invalid_reference_probabilities(tmp_path: Pat
         writer.writeheader()
         writer.writerows(rows)
     _refresh_metadata(shards[0])
-    report = summarize_localized_network(shards, CONFIG, tmp_path / "summary")
+    report = summarize_localized_network(
+        shards, CONFIG, tmp_path / "summary", matched_rerun_shard_dirs=matched_rerun
+    )
     cell = next(
         c for c in report["cells"]
         if c["condition"] == "clean" and c["N"] == 50 and c["p"] == 20
