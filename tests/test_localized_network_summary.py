@@ -28,7 +28,7 @@ CONFIG = ROOT / "simulations" / "configs" / "localized_network_v1.json"
 FIELDS = (
     "arm,N,p,focal_context,condition,replication,data_seed,calibration_seed,"
     "bootstrap_seed,dataset_digest,focal_i,focal_j,planted_case_indices,"
-    "module_count,true_rho,observed_rho,lambda,contamination_count,"
+    "module_count,true_rho,observed_rho,lambda,condition_number,contamination_count,"
     "contamination_status,fragility_target,search_cap,calibration_require_reached,"
     "greedy_fragility_50,exact_fragility_50,certified,reached,"
     "certification_combinations_checked,certification_combination_budget,"
@@ -142,6 +142,7 @@ def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
                 "true_rho": float(pop.partial_correlation[focal_i, focal_j]),
                 "observed_rho": 0.04,
                 "lambda": 0.1,
+                "condition_number": 42.0,
                 "contamination_count": len(planted),
                 "contamination_status": int(contaminated),
                 "fragility_target": job["target"],
@@ -202,6 +203,7 @@ def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
                     contamination_status="",
                     observed_rho="",
                     **{"lambda": ""},
+                    condition_number="",
                     certified="",
                     reached="",
                     certification_combinations_checked="",
@@ -282,6 +284,17 @@ def test_full_shards_report_denominators_wilson_intervals_and_nulls(tmp_path: Pa
     assert cell["reached_rate"]["wilson_95"][0] == pytest.approx(0.722, abs=0.002)
     assert cell["reached_rate"]["wilson_95"][1] == pytest.approx(1.0)
     assert cell["clean_false_flag_rate"]["denominator"] == 10
+    assert cell["shrinkage"] == {
+        "mean": 0.1, "minimum": 0.1, "maximum": 0.1,
+        "valid_rows": 10, "scheduled_rows": 10,
+    }
+    assert cell["condition_number"] == {
+        "mean": 42.0, "minimum": 42.0, "maximum": 42.0,
+        "valid_rows": 10, "scheduled_rows": 10,
+    }
+    assert "Condition number mean" in (tmp_path / "summary" / "summary.md").read_text(
+        encoding="utf-8"
+    )
     assert cell["influence_top_k_precision"]["valid_rows"] == 0
     assert cell["influence_top_k_precision"]["scheduled_rows"] == 0
     assert cell["influence_top_k_precision"]["mean"] is None
@@ -397,6 +410,7 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
                 contamination_status="",
                 observed_rho="",
                 **{"lambda": ""},
+                condition_number="",
                 greedy_fragility_50="",
                 exact_fragility_50="",
                 certified="",

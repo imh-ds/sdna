@@ -19,7 +19,7 @@ CONFIG_PATH = Path(__file__).parents[1] / "simulations/configs/localized_network
 CSV_FIELDS = [
     "arm", "N", "p", "focal_context", "condition", "replication", "data_seed",
     "calibration_seed", "bootstrap_seed", "dataset_digest", "focal_i", "focal_j",
-    "planted_case_indices", "module_count", "true_rho", "observed_rho", "lambda",
+    "planted_case_indices", "module_count", "true_rho", "observed_rho", "lambda", "condition_number",
     "contamination_count", "contamination_status", "fragility_target", "search_cap",
     "calibration_require_reached", "greedy_fragility_50", "exact_fragility_50",
     "certified", "reached", "certification_combinations_checked",
@@ -38,6 +38,7 @@ def _workflow_result(dataset: Any) -> dict[str, Any]:
         "true_rho": float(dataset.partial_correlation[dataset.focal_edge]),
         "observed_rho": 0.1,
         "lambda": 0.0,
+        "condition_number": 17.5,
         "contamination_count": len(dataset.contaminated_cases),
         "contamination_status": int(bool(dataset.contaminated_cases)),
         "greedy_fragility_50": 1,
@@ -93,6 +94,7 @@ def test_runner_writes_exact_schema_and_paired_provenance(
     assert {int(row["p"]) for row in rows} == {20}
     assert status["status"] == "complete"
     assert status["expected_rows"] == status["completed_rows"] == 540
+    assert {float(row["condition_number"]) for row in rows} == {17.5}
 
     by_key: dict[tuple[str, ...], list[dict[str, str]]] = defaultdict(list)
     for row in rows:

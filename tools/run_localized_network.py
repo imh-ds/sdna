@@ -37,7 +37,7 @@ from tools.localized_network_manifest import (
 RESULT_FIELDNAMES = [
     "arm", "N", "p", "focal_context", "condition", "replication", "data_seed",
     "calibration_seed", "bootstrap_seed", "dataset_digest", "focal_i", "focal_j",
-    "planted_case_indices", "module_count", "true_rho", "observed_rho", "lambda",
+    "planted_case_indices", "module_count", "true_rho", "observed_rho", "lambda", "condition_number",
     "contamination_count", "contamination_status", "fragility_target", "search_cap",
     "calibration_require_reached", "greedy_fragility_50", "exact_fragility_50",
     "certified", "reached", "certification_combinations_checked",
@@ -144,6 +144,7 @@ def _base_row(job: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
         "true_rho": manifest["population"]["focal_partial_correlation"],
         "observed_rho": None,
         "lambda": None,
+        "condition_number": None,
         "contamination_count": manifest["condition_settings"][job["condition"]][
             "planted_case_count"
         ],

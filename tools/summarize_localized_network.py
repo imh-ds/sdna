@@ -24,7 +24,7 @@ from tools.localized_network_manifest import (
 FIELDNAMES = (
     "arm,N,p,focal_context,condition,replication,data_seed,calibration_seed,"
     "bootstrap_seed,dataset_digest,focal_i,focal_j,planted_case_indices,"
-    "module_count,true_rho,observed_rho,lambda,contamination_count,"
+    "module_count,true_rho,observed_rho,lambda,condition_number,contamination_count,"
     "contamination_status,fragility_target,search_cap,calibration_require_reached,"
     "greedy_fragility_50,exact_fragility_50,certified,reached,"
     "certification_combinations_checked,certification_combination_budget,"
@@ -313,7 +313,7 @@ def _validate_rows(
             for field in ("certified", "reached", "certification_budget_exhausted"):
                 row[field] = _boolean(row[field], field, optional=True)
             for field in (
-                "observed_rho", "lambda", "greedy_fragility_50", "exact_fragility_50",
+                "observed_rho", "lambda", "condition_number", "greedy_fragility_50", "exact_fragility_50",
                 "reference_reached_fraction", "wald_z", "influence_top_k_precision",
                 "influence_top_k_recall", "first_planted_reciprocal_rank",
                 "planted_absolute_influence_share",
@@ -337,6 +337,8 @@ def _validate_rows(
                 value = row[field]
                 if value is not None and not 0.0 <= value <= 1.0:
                     raise ValueError(f"{field} must be within [0, 1]")
+            if row["condition_number"] is not None and row["condition_number"] <= 0.0:
+                raise ValueError("condition_number must be positive")
             row["elapsed_seconds"] = _number(row["elapsed_seconds"], "elapsed_seconds")
             if row["elapsed_seconds"] < 0:
                 raise ValueError("elapsed_seconds must be nonnegative")
@@ -460,6 +462,17 @@ def _mean_metric(values: Sequence[float | None], scheduled: int) -> dict[str, An
     }
 
 
+def _numeric_range(values: Sequence[float | None], scheduled: int) -> dict[str, Any]:
+    finite = [value for value in values if value is not None and math.isfinite(value)]
+    return {
+        "mean": sum(finite) / len(finite) if finite else None,
+        "minimum": min(finite) if finite else None,
+        "maximum": max(finite) if finite else None,
+        "valid_rows": len(finite),
+        "scheduled_rows": scheduled,
+    }
+
+
 def _cell_summary(
     rows: Sequence[Mapping[str, Any]],
     *,
@@ -501,6 +514,8 @@ def _cell_summary(
         "available_rows": len(rows),
         "replication_count": len({row["replication"] for row in rows}),
         **metrics,
+        "shrinkage": _numeric_range([row["lambda"] for row in rows], scheduled),
+        "condition_number": _numeric_range([row["condition_number"] for row in rows], scheduled),
         "clean_invalid_reference_rows": len(clean_rows) - len(clean_valid) if condition == "clean" else 0,
         "unreached_rows": sum(row["fragility_status"] == "unreached" for row in rows),
         "fragility_error_rows": sum(row["fragility_status"] == "error" for row in rows),
@@ -526,15 +541,20 @@ def _markdown(report: Mapping[str, Any]) -> str:
         "",
         "## Cell summaries",
         "",
-        "| N | p | Context | Condition | Arm | Scheduled | Reached | Certified | Clean false flags |",
-        "|---:|---:|---|---|---|---:|---:|---:|---:|",
+        "| N | p | Context | Condition | Arm | Scheduled | Reached | Certified | Clean false flags | Shrinkage mean (valid/scheduled) | Condition number mean [min, max] (valid/scheduled) |",
+        "|---:|---:|---|---|---:|---:|---:|---:|---:|---|---|",
     ]
     for cell in report["cells"]:
         reached, certified, false_flags = (cell[name] for name in ("reached_rate", "certified_yield", "clean_false_flag_rate"))
+        shrinkage = cell["shrinkage"]
+        condition_number = cell["condition_number"]
         lines.append(
             f"| {cell['N']} | {cell['p']} | {cell['focal_context']} | {cell['condition']} | {cell['arm']} | "
             f"{cell['scheduled_rows']} | {reached['numerator']}/{reached['denominator']} | "
-            f"{certified['numerator']}/{certified['denominator']} | {false_flags['numerator']}/{false_flags['denominator']} |"
+            f"{certified['numerator']}/{certified['denominator']} | {false_flags['numerator']}/{false_flags['denominator']} | "
+            f"{shrinkage['mean']} ({shrinkage['valid_rows']}/{shrinkage['scheduled_rows']}) | "
+            f"{condition_number['mean']} [{condition_number['minimum']}, {condition_number['maximum']}] "
+            f"({condition_number['valid_rows']}/{condition_number['scheduled_rows']}) |"
         )
     lines.extend(["", "## Shard issues", ""])
     lines.extend(f"- p={item['p']}: {item['reason']}" for item in report["shard_issues"])
