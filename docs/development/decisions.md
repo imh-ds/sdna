@@ -1177,3 +1177,26 @@ implementation consequence rather than silently changing an earlier record.
   independent review but are outside this documentation-only change.
 - **Status:** Protocol and pre-run decision are recorded; hosted empirical
   evidence is pending.
+
+### ADR-026 implementation provenance addendum
+
+- **Exact decision and implementation commits:** The pre-run decision above
+  first entered the repository in `19158cc` (`docs: pre-specify Task 27
+  localized network protocol`). The manual workflow was added in `763f5bc`,
+  its incomplete-artifact acceptance gate was hardened in `8a995fb`, the
+  workflow/protocol contract tests were added in `5ffe912`, and upload/gate
+  ordering plus checksum-recomputation coverage was added in `65c5d2b`.
+  The workflow and protocol are therefore reviewable as a small commit series,
+  not as one assumed source revision.
+- **Why this addendum exists:** `19158cc` cannot contain its own eventual Git
+  SHA. This append-only entry makes the exact decision commit and subsequent
+  implementation/test commits discoverable to independent reviewers without
+  rewriting the original pre-run rationale.
+- **Review files:** `.github/workflows/localized-network.yml`,
+  `docs/methodology/localized_network_operating_envelope_v1.md`,
+  `tests/test_localized_network_workflow.py`, and the ADR-026 pre-run entry
+  immediately above. The frozen manifest checksum remains
+  `f163ce9e528de59312abe785a5dda984ba8ee4f3c1c124c853bc78a76001bf48`.
+- **Status:** This provenance addendum is documentation only. No hosted run
+  has been dispatched; Task 6 review/integration and Task 7 execution remain
+  pending.

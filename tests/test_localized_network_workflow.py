@@ -91,6 +91,8 @@ def test_v1_protocol_and_prerun_decision_are_prespecified_and_scoped() -> None:
     assert localized_manifest_checksum(manifest) == frozen_digest
     assert frozen_digest in decisions
     assert "2f0b49a" in decisions and "74823b6" in decisions and "bef4f67" in decisions
+    for commit in ("19158cc", "763f5bc", "8a995fb", "5ffe912", "65c5d2b"):
+        assert commit in decisions
     for file_name in (
         "localized_network_v1.json",
         "run_localized_network.py",
