@@ -102,7 +102,6 @@ jobs:
           pattern: localized-network-p*-${{ github.run_id }}
           path: ${{ runner.temp }}/localized-network-downloaded-shards
           merge-multiple: false
-          if-no-files-found: warn
 
       - name: Summarize available shards and retain incomplete status
         if: always()
@@ -139,3 +138,10 @@ jobs:
           path: ${{ runner.temp }}/localized-network-aggregate
           if-no-files-found: error
           retention-days: 90
+
+      - name: Enforce complete localized-network result after upload
+        if: always()
+        env:
+          AGGREGATE_DIR: ${{ runner.temp }}/localized-network-aggregate
+        run: >-
+          python -c "import json, os; from pathlib import Path; summary = Path(os.environ['AGGREGATE_DIR']) / 'summary.json'; complete = summary.is_file() and json.loads(summary.read_text(encoding='utf-8')).get('acceptance_status') == 'complete'; raise SystemExit(0 if complete else 1)"
