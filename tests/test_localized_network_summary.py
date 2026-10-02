@@ -332,9 +332,14 @@ def test_full_shards_report_denominators_wilson_intervals_and_nulls(tmp_path: Pa
     assert cell["reached_rate"]["wilson_95"][0] == pytest.approx(0.722, abs=0.002)
     assert cell["reached_rate"]["wilson_95"][1] == pytest.approx(1.0)
     assert cell["clean_false_flag_rate"]["denominator"] == 10
-    assert cell["shrinkage"] == {
-        "mean": 0.1, "minimum": 0.1, "maximum": 0.1,
-        "valid_rows": 10, "scheduled_rows": 10,
+    assert cell["shrinkage"]["mean"] == pytest.approx(0.1)
+    assert {
+        key: value for key, value in cell["shrinkage"].items() if key != "mean"
+    } == {
+        "minimum": 0.1,
+        "maximum": 0.1,
+        "valid_rows": 10,
+        "scheduled_rows": 10,
     }
     assert cell["condition_number"] == {
         "mean": 42.0, "minimum": 42.0, "maximum": 42.0,
