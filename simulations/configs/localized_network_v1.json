@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "study": "localized_network_operating_envelope",
+  "seed": 20261002,
+  "replications": 10,
+  "n_values": [50, 100, 150],
+  "p_values": [20, 40, 60],
+  "modules": {
+    "nodes_per_module": 5,
+    "within_module_edges": ["ring", "hub_to_all_other_nodes"],
+    "between_module_edges": ["last_node_to_next_module_hub"]
+  },
+  "population": {
+    "precision_diagonal": 1.0,
+    "edge_precision": -0.05,
+    "focal_partial_correlation": 0.05
+  },
+  "focal_contexts": [
+    "within_community",
+    "hub_adjacent",
+    "bridge"
+  ],
+  "conditions": ["clean", "single_case", "coalition"],
+  "condition_settings": {
+    "clean": {"planted_case_count": 0, "shift": 0.0},
+    "single_case": {"planted_case_count": 1, "shift": 4.0},
+    "coalition": {"planted_case_count": 3, "shift": 4.0}
+  },
+  "arms": [
+    {"name": "baseline_cap2", "target": 0.5, "search_cap": 2, "role": "primary"},
+    {
+      "name": "diagnostic_cap4",
+      "target": 0.5,
+      "search_cap": 4,
+      "role": "diagnostic"
+    }
+  ],
+  "certification_combination_budget": 1000,
+  "calibration_simulations": 25,
+  "calibration_require_reached": false,
+  "bootstrap_draws": 100,
+  "bootstrap_confidence": 0.95,
+  "operational_runtime_ceiling_seconds": 3600,
+  "actions_timeout_minutes": 70,
+  "expected_pairing_keys": 810,
+  "expected_rows": 1620,
+  "expected_pairing_keys_per_p": 270,
+  "expected_rows_per_p": 540
+}
