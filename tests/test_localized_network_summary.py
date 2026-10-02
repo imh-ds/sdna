@@ -328,9 +328,13 @@ def test_summarizer_accepts_actual_runner_generation_error_rows(
 @pytest.mark.parametrize("mutation", [
     "missing_shard", "duplicate", "missing_arm", "seed", "digest", "truth",
     "case_json", "checksum", "commit_format", "commit_mismatch",
+    "generation_error_digest",
 ])
 def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path, mutation: str) -> None:
-    shards = _make_shards(tmp_path / "shards")
+    shards = _make_shards(
+        tmp_path / "shards",
+        outcome="clean",
+    )
     if mutation == "missing_shard":
         shards = shards[:2]
     elif mutation in {"commit_format", "commit_mismatch"}:
@@ -342,6 +346,55 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
                 "placeholder" if mutation == "commit_format" else "b" * 40
             )
             metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    elif mutation == "generation_error_digest":
+        target = shards[0] / "results.csv"
+        with target.open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        for generation_row in rows:
+            if not (
+                generation_row["N"] == "50"
+                and generation_row["condition"] == "clean"
+                and generation_row["replication"] == "0"
+            ):
+                continue
+            generation_row.update(
+                dataset_digest="f" * 64,
+                planted_case_indices="",
+                contamination_count="",
+                contamination_status="",
+                observed_rho="",
+                **{"lambda": ""},
+                greedy_fragility_50="",
+                exact_fragility_50="",
+                certified="",
+                reached="",
+                certification_combinations_checked="",
+                certification_budget_exhausted="",
+                certification_failure_reason="",
+                reference_tail_probability="",
+                reference_reached_fraction="",
+                wald_z="",
+                bootstrap_ci_excludes_zero="",
+                bootstrap_rejected_resamples="",
+                influence_top_k_precision="",
+                influence_top_k_recall="",
+                first_planted_reciprocal_rank="",
+                planted_absolute_influence_share="",
+                fragility_status="error",
+                certification_status="error",
+                calibration_status="error",
+                wald_status="error",
+                bootstrap_status="error",
+                workflow_status="error",
+                error_stage="generation",
+                error_type="RuntimeError",
+                error_message="fixture generation error",
+            )
+        with target.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=FIELDS)
+            writer.writeheader()
+            writer.writerows(rows)
+        _refresh_metadata(shards[0])
     else:
         target = shards[0] / "results.csv"
         with target.open(newline="", encoding="utf-8") as handle:
@@ -375,6 +428,8 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
     elif mutation == "commit_mismatch":
         assert report["valid_rows"] == 1620
         assert any("provenance differs" in item["reason"] for item in report["shard_issues"])
+    elif mutation == "generation_error_digest":
+        assert any("generation errors must not claim a dataset digest" in item["reason"] for item in report["shard_issues"])
     elif mutation == "duplicate":
         assert report["valid_rows"] == 1620
         assert report["duplicate_arm_pairing_rows"] == 1

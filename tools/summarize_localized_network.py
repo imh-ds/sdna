@@ -267,6 +267,8 @@ def _validate_rows(
                 raise ValueError("calibration requirement does not match manifest")
             digest_value = str(row["dataset_digest"]).strip()
             digest = digest_value or None
+            if generation_failed and digest is not None:
+                raise ValueError("generation errors must not claim a dataset digest")
             if digest is None and not generation_failed:
                 raise ValueError("dataset_digest is missing outside a generation error")
             if digest is not None and (
