@@ -21,22 +21,21 @@ from tools.localized_network_manifest import (
     localized_manifest_checksum,
 )
 
-FIELDNAMES = (
-    "arm,N,p,focal_context,condition,replication,data_seed,calibration_seed,"
-    "bootstrap_seed,dataset_digest,focal_i,focal_j,planted_case_indices,"
-    "module_count,true_rho,observed_rho,lambda,condition_number,contamination_count,"
-    "contamination_status,fragility_target,search_cap,calibration_require_reached,"
-    "greedy_fragility_50,exact_fragility_50,certified,reached,"
-    "certification_combinations_checked,certification_combination_budget,"
-    "certification_budget_exhausted,certification_failure_reason,"
-    "reference_tail_probability,reference_reached_fraction,wald_z,"
-    "bootstrap_ci_excludes_zero,bootstrap_rejected_resamples,"
-    "influence_top_k_precision,influence_top_k_recall,"
-    "first_planted_reciprocal_rank,planted_absolute_influence_share,"
-    "fragility_status,certification_status,calibration_status,wald_status,"
-    "bootstrap_status,workflow_status,error_stage,error_type,error_message,"
-    "elapsed_seconds"
-).split(",")
+FIELDNAMES = [
+    "arm", "N", "p", "focal_context", "condition", "replication", "data_seed",
+    "calibration_seed", "bootstrap_seed", "dataset_digest", "focal_i", "focal_j",
+    "planted_case_indices", "module_count", "true_rho", "observed_rho", "lambda",
+    "condition_number", "contamination_count", "contamination_status", "fragility_target",
+    "search_cap", "calibration_require_reached", "greedy_fragility_50", "exact_fragility_50",
+    "certified", "reached", "certification_combinations_checked",
+    "certification_combination_budget", "certification_budget_exhausted",
+    "certification_failure_reason", "reference_tail_probability", "reference_reached_fraction",
+    "wald_z", "bootstrap_ci_excludes_zero", "bootstrap_rejected_resamples",
+    "influence_top_k_precision", "influence_top_k_recall", "first_planted_reciprocal_rank",
+    "planted_absolute_influence_share", "fragility_status", "certification_status",
+    "calibration_status", "wald_status", "bootstrap_status", "workflow_status", "error_stage",
+    "error_type", "error_message", "elapsed_seconds",
+]
 _ARM_NAMES = {"baseline_cap2", "diagnostic_cap4"}
 _ROW_KEY_FIELDS = ("arm", "N", "p", "focal_context", "condition", "replication")
 _STATUS_VALUES = {
@@ -59,7 +58,9 @@ def _sha256(path: Path) -> str:
 
 def _integer(value: Any, name: str, *, minimum: int = 0) -> int:
     if isinstance(value, bool):
-        raise ValueError(f"{name} must be an integer")
+        raise ValueError(  # noqa: TRY004 -- invalid artifact values use the validator's ValueError contract
+            f"{name} must be an integer"
+        )
     try:
         number = int(value)
     except (TypeError, ValueError) as error:
@@ -100,7 +101,9 @@ def _json_object(path: Path, label: str) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError) as error:
         raise ValueError(f"{label} is missing or malformed: {error}") from error
     if not isinstance(value, dict):
-        raise ValueError(f"{label} must be a JSON object")
+        raise ValueError(  # noqa: TRY004 -- malformed persisted artifacts are value errors
+            f"{label} must be a JSON object"
+        )
     return value
 
 
@@ -724,14 +727,18 @@ def _markdown(report: Mapping[str, Any]) -> str:
         "",
         "Cap 2 is the primary operating workflow; cap 4 is diagnostic sensitivity evidence.",
         "Incomplete shards and invalid rows are retained in the acceptance accounting.",
-        f"Matched rerun: {report['matched_rerun']['status']} "
-        f"({report['matched_rerun']['compared_rows']} rows; elapsed_seconds excluded).",
+        (
+            f"Matched rerun: {report['matched_rerun']['status']} "
+            f"({report['matched_rerun']['compared_rows']} rows; elapsed_seconds excluded)."
+        ),
         "",
         "## Cell summaries",
         "",
-        "| N | p | Context | Condition | Arm | Scheduled | Reached | Certified | "
-        "Clean false flags | Shrinkage mean (valid/scheduled) | "
-        "Condition number mean [min, max] (valid/scheduled) |",
+        (
+            "| N | p | Context | Condition | Arm | Scheduled | Reached | Certified | "
+            "Clean false flags | Shrinkage mean (valid/scheduled) | "
+            "Condition number mean [min, max] (valid/scheduled) |"
+        ),
         "|---:|---:|---|---|---:|---:|---:|---:|---:|---|---|",
     ]
     for cell in report["cells"]:

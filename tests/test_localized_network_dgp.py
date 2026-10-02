@@ -10,7 +10,6 @@ from simulations.localized_network_dgp import (
     generate_localized_dataset,
 )
 
-
 P_VALUES = (20, 40, 60)
 FOCAL_EDGES = {
     "within_community": (1, 2),
@@ -132,7 +131,7 @@ def test_generator_rejects_unsupported_condition(condition: str) -> None:
 
 
 @pytest.mark.parametrize("n", [-1, 0, 1, 2, 2.5])
-def test_generator_rejects_invalid_sample_size(n: int | float) -> None:
+def test_generator_rejects_invalid_sample_size(n: float) -> None:
     with pytest.raises(ValueError, match="n must be an integer of at least 3"):
         generate_localized_dataset(n, 20, "bridge", "clean", seed=1)
 

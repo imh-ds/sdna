@@ -20,7 +20,6 @@ from tools.localized_network_manifest import (
     localized_pairing_keys,
 )
 
-
 CONFIG_PATH = (
     Path(__file__).parents[1]
     / "simulations"

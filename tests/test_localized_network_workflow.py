@@ -8,7 +8,6 @@ from pathlib import Path
 
 from tools.localized_network_manifest import localized_manifest_checksum
 
-
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/localized-network.yml"
 METHODOLOGY = ROOT / "docs/methodology/localized_network_operating_envelope_v1.md"

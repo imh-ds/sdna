@@ -119,7 +119,9 @@ def _validate_resume_provenance(
         raise ValueError("existing results have incompatible run provenance")
     file_hashes = metadata.get("files")
     if not isinstance(file_hashes, dict):
-        raise ValueError("existing results metadata has no file checksums")
+        raise ValueError(  # noqa: TRY004 -- malformed persisted metadata is an artifact value error
+            "existing results metadata has no file checksums"
+        )
     expected_names = {"results.csv", "shard_status.json"}
     if (output_dir / "github-run.txt").exists():
         expected_names.add("github-run.txt")
@@ -342,7 +344,7 @@ def run_localized_network(
                     first["condition"], data_seed,
                 )
                 digest = dataset_digest(dataset)
-            except Exception as error:  # preserve generation failures as scheduled rows
+            except Exception as error:  # noqa: BLE001 -- retain arbitrary generator failures as rows
                 generation_error = error
                 digest = None
             for job in missing_jobs:
@@ -375,7 +377,7 @@ def run_localized_network(
                     row["planted_case_indices"] = json.dumps(
                         list(dataset.contaminated_cases), separators=(",", ":")
                     )
-                except Exception as error:
+                except Exception as error:  # noqa: BLE001 -- retain arbitrary workflow failures as rows
                     row = _error_row(
                         job, manifest, workflow_seeds,
                         "generation" if generation_error is not None else "workflow",

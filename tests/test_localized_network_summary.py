@@ -11,40 +11,39 @@ from pathlib import Path
 
 import pytest
 
-from simulations.localized_network_dgp import build_localized_population
 from simulations.full_workflow import derive_workflow_seeds
+from simulations.localized_network_dgp import build_localized_population
 from tools import run_localized_network as runner
-from tools.run_localized_network import RESULT_FIELDNAMES
 from tools.localized_network_manifest import (
     expand_localized_jobs,
     load_localized_manifest,
     localized_manifest_checksum,
 )
+from tools.run_localized_network import RESULT_FIELDNAMES
 from tools.summarize_localized_network import FIELDNAMES as SUMMARY_FIELDS
-from tools.summarize_localized_network import main as summary_main
 from tools.summarize_localized_network import (
     compare_localized_network_rerun,
     summarize_localized_network,
 )
+from tools.summarize_localized_network import main as summary_main
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "simulations" / "configs" / "localized_network_v1.json"
-FIELDS = (
-    "arm,N,p,focal_context,condition,replication,data_seed,calibration_seed,"
-    "bootstrap_seed,dataset_digest,focal_i,focal_j,planted_case_indices,"
-    "module_count,true_rho,observed_rho,lambda,condition_number,contamination_count,"
-    "contamination_status,fragility_target,search_cap,calibration_require_reached,"
-    "greedy_fragility_50,exact_fragility_50,certified,reached,"
-    "certification_combinations_checked,certification_combination_budget,"
-    "certification_budget_exhausted,certification_failure_reason,"
-    "reference_tail_probability,reference_reached_fraction,wald_z,"
-    "bootstrap_ci_excludes_zero,bootstrap_rejected_resamples,"
-    "influence_top_k_precision,influence_top_k_recall,"
-    "first_planted_reciprocal_rank,planted_absolute_influence_share,"
-    "fragility_status,certification_status,calibration_status,wald_status,"
-    "bootstrap_status,workflow_status,error_stage,error_type,error_message,"
-    "elapsed_seconds"
-).split(",")
+FIELDS = [
+    "arm", "N", "p", "focal_context", "condition", "replication", "data_seed",
+    "calibration_seed", "bootstrap_seed", "dataset_digest", "focal_i", "focal_j",
+    "planted_case_indices", "module_count", "true_rho", "observed_rho", "lambda",
+    "condition_number", "contamination_count", "contamination_status", "fragility_target",
+    "search_cap", "calibration_require_reached", "greedy_fragility_50", "exact_fragility_50",
+    "certified", "reached", "certification_combinations_checked",
+    "certification_combination_budget", "certification_budget_exhausted",
+    "certification_failure_reason", "reference_tail_probability", "reference_reached_fraction",
+    "wald_z", "bootstrap_ci_excludes_zero", "bootstrap_rejected_resamples",
+    "influence_top_k_precision", "influence_top_k_recall", "first_planted_reciprocal_rank",
+    "planted_absolute_influence_share", "fragility_status", "certification_status",
+    "calibration_status", "wald_status", "bootstrap_status", "workflow_status", "error_stage",
+    "error_type", "error_message", "elapsed_seconds",
+]
 
 
 def _sha(path: Path) -> str:
