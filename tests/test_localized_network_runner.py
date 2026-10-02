@@ -182,6 +182,54 @@ def test_interruption_keeps_completed_rows_and_incomplete_status(
     assert status["expected_rows"] == 540
 
 
+def test_same_commit_resume_keeps_checkpointed_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = 0
+
+    def interrupted_workflow(dataset: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise KeyboardInterrupt("injected interruption")
+        return _workflow_result(dataset)
+
+    monkeypatch.setattr(runner, "_git_commit", lambda: "same-commit")
+    monkeypatch.setattr(runner, "run_full_workflow", interrupted_workflow)
+    output = tmp_path / "same-commit-resume"
+    with pytest.raises(KeyboardInterrupt, match="injected interruption"):
+        runner.run_localized_network(CONFIG_PATH, output, 20)
+    preserved_row = _read_rows(output / "results.csv")[0]
+
+    resumed_calls = 0
+
+    def resumed_workflow(dataset: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal resumed_calls
+        resumed_calls += 1
+        return _workflow_result(dataset)
+
+    monkeypatch.setattr(runner, "run_full_workflow", resumed_workflow)
+    status = runner.run_localized_network(CONFIG_PATH, output, 20)
+    rows = _read_rows(output / "results.csv")
+    assert status["status"] == "complete"
+    assert status["completed_rows"] == 540
+    assert len(rows) == 540
+    assert rows[0] == preserved_row
+    assert resumed_calls == 539
+
+
+def test_runner_rejects_unavailable_git_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def generation_error(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("unused when commit provenance is unavailable")
+
+    monkeypatch.setattr(runner, "_git_commit", lambda: None)
+    monkeypatch.setattr(runner, "generate_localized_dataset", generation_error)
+    with pytest.raises(ValueError, match="Git commit"):
+        runner.run_localized_network(CONFIG_PATH, tmp_path / "no-commit", 20)
+
+
 @pytest.mark.parametrize("tamper", ["commit", "results_checksum"])
 def test_resume_rejects_incompatible_checkpoint_provenance(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tamper: str

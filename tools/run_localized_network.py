@@ -113,7 +113,7 @@ def _validate_resume_provenance(
         "p_shard": p_shard,
     }
     if not isinstance(metadata, dict) or any(
-        metadata.get(field) != expected
+        field not in metadata or metadata[field] != expected
         for field, expected in expected_metadata.items()
     ):
         raise ValueError("existing results have incompatible run provenance")
@@ -271,6 +271,8 @@ def run_localized_network(
     output.mkdir(parents=True, exist_ok=True)
     results_path = output / "results.csv"
     git_commit = _git_commit()
+    if git_commit is None:
+        raise ValueError("Git commit provenance is required to run the localized study")
     rows: list[dict[str, Any]] = []
     if results_path.exists():
         _validate_resume_provenance(output, manifest, p_shard, git_commit)
