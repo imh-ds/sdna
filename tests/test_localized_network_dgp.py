@@ -73,18 +73,15 @@ def test_population_rejects_unsupported_dimensions(p: int) -> None:
         build_localized_population(p)
 
 
-@pytest.mark.parametrize("focal_context", ["within_community", "hub_adjacent", "bridge"])
-def test_matched_contexts_share_clean_data_and_planted_case_indices(
-    focal_context: str,
-) -> None:
-    reference = generate_localized_dataset(50, 20, focal_context, "clean", seed=183)
+def test_matched_contexts_share_clean_data_and_planted_case_indices() -> None:
+    reference = generate_localized_dataset(50, 20, "within_community", "clean", seed=183)
+    coalition_indices = []
     for context in FOCAL_EDGES:
         matched_clean = generate_localized_dataset(50, 20, context, "clean", seed=183)
         matched_coalition = generate_localized_dataset(50, 20, context, "coalition", seed=183)
         np.testing.assert_array_equal(matched_clean.X, reference.X)
-        assert matched_coalition.contaminated_cases == generate_localized_dataset(
-            50, 20, focal_context, "coalition", seed=183
-        ).contaminated_cases
+        coalition_indices.append(matched_coalition.contaminated_cases)
+    assert coalition_indices[0] == coalition_indices[1] == coalition_indices[2]
 
 
 @pytest.mark.parametrize(
@@ -146,3 +143,6 @@ def test_population_value_is_frozen() -> None:
     assert isinstance(population, LocalizedNetworkPopulation)
     with pytest.raises((AttributeError, TypeError)):
         population.module_count = 99  # type: ignore[misc]
+    for matrix in (population.covariance, population.precision, population.partial_correlation):
+        with pytest.raises(ValueError, match="read-only"):
+            matrix[0, 0] = -1.0

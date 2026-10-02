@@ -37,6 +37,12 @@ class LocalizedNetworkPopulation:
     focal_edges: Mapping[str, tuple[int, int]]
     module_count: int
 
+    def __post_init__(self) -> None:
+        for field_name in ("covariance", "precision", "partial_correlation"):
+            matrix = np.array(getattr(self, field_name), dtype=float, copy=True)
+            matrix.setflags(write=False)
+            object.__setattr__(self, field_name, matrix)
+
 
 def _validate_p(p: int) -> None:
     if isinstance(p, bool) or not isinstance(p, (int, np.integer)) or p not in SUPPORTED_P:
