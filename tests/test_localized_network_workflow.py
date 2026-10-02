@@ -131,6 +131,6 @@ def test_v2_records_review_corrections_without_rewriting_v1() -> None:
         assert phrase.casefold() in protocol_v2.casefold()
     assert "ADR-027" in decisions
     assert "independent task 6 review" in decisions.casefold()
-    for commit in ("97d8e32", "d9ac6bb", "521ba63", "ad19a22"):
+    for commit in ("97d8e32", "d9ac6bb", "521ba63", "ad19a22", "b0329d9"):
         assert commit in decisions
-    assert "359" in decisions and "compileall passed" in decisions
+    assert "361" in decisions and "compileall passed" in decisions

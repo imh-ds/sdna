@@ -1268,3 +1268,23 @@ implementation consequence rather than silently changing an earlier record.
   and mypy were not available in the local interpreter and remain for PR CI.
   Independent re-review of the final hardening is pending; no hosted study run
   has occurred.
+
+### ADR-027 final numerical-range review addendum
+
+- **Review finding and rationale:** The independent re-review of `ad19a22`
+  identified that present-but-impossible numeric diagnostics could pass the
+  schema checks. A 2-norm matrix condition number must be at least `1`, and a
+  partial correlation must lie in `[-1, 1]`; accepting values outside those
+  domains would undermine the numerical-boundary report.
+- **Exact correction commit:** `b0329d9` enforces those ranges in the artifact
+  validator and records them in the v2 acceptance addendum. Regression cases
+  cover below-one condition numbers and out-of-range focal partial
+  correlations.
+- **Review files:** `tools/summarize_localized_network.py`,
+  `tests/test_localized_network_summary.py`,
+  `tests/test_localized_network_workflow.py`, and
+  `docs/methodology/localized_network_operating_envelope_v2.md`.
+- **Verification at `b0329d9`:** Python 3.14 full repository suite: 361
+  passed; compileall passed. The independent reviewer marked the prior state
+  `ad19a22` as hold; final re-review of `b0329d9` and hosted PR CI remain
+  pending. No hosted study run has occurred.
