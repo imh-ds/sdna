@@ -13,6 +13,7 @@ __all__ = [
     "LOCALIZED_PAIRING_FIELDS",
     "expand_localized_jobs",
     "load_localized_manifest",
+    "localized_data_seed",
     "localized_data_seed_key",
     "localized_manifest_checksum",
     "localized_pairing_keys",
@@ -63,6 +64,7 @@ _EXPECTED_MANIFEST: dict[str, Any] = {
     "certification_combination_budget": 1000,
     "calibration_simulations": 25,
     "calibration_require_reached": False,
+    "reference_tail_treatment": "right_censored",
     "bootstrap_draws": 100,
     "bootstrap_confidence": 0.95,
     "operational_runtime_ceiling_seconds": 3600,
@@ -132,6 +134,36 @@ def localized_data_seed_key(job: Mapping[str, Any]) -> tuple[int, int, str, int]
     return (n, p, condition, replication)
 
 
+def localized_data_seed(
+    root_seed: int, data_seed_key: tuple[int, int, str, int]
+) -> int:
+    """Derive a stable 64-bit data/case seed from the root seed and four-field key."""
+    if isinstance(root_seed, bool) or not isinstance(root_seed, int) or root_seed < 0:
+        raise ValueError("root_seed must be a nonnegative integer")
+    if not isinstance(data_seed_key, tuple) or len(data_seed_key) != len(DATA_SEED_FIELDS):
+        raise ValueError("data_seed_key must be (N, p, condition, replication)")
+    n, p, condition, replication = data_seed_key
+    if (
+        isinstance(n, bool)
+        or not isinstance(n, int)
+        or n < 1
+        or isinstance(p, bool)
+        or not isinstance(p, int)
+        or p < 1
+        or not isinstance(condition, str)
+        or isinstance(replication, bool)
+        or not isinstance(replication, int)
+        or replication < 0
+    ):
+        raise ValueError(
+            "data_seed_key must contain (positive N, positive p, condition, replication)"
+        )
+    encoded = json.dumps(
+        [root_seed, *data_seed_key], separators=(",", ":"), ensure_ascii=True
+    ).encode("ascii")
+    return int.from_bytes(hashlib.sha256(encoded).digest()[:8], byteorder="big")
+
+
 def expand_localized_jobs(
     manifest: Mapping[str, Any], p_shard: int | None = None
 ) -> list[dict[str, Any]]:
@@ -160,6 +192,10 @@ def expand_localized_jobs(
                                     "focal_context": focal_context,
                                     "condition": condition,
                                     "replication": replication,
+                                    "data_seed": localized_data_seed(
+                                        frozen["seed"],
+                                        (n, p, condition, replication),
+                                    ),
                                     "target": arm["target"],
                                     "search_cap": arm["search_cap"],
                                 }

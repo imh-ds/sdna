@@ -38,6 +38,7 @@
   "certification_combination_budget": 1000,
   "calibration_simulations": 25,
   "calibration_require_reached": false,
+  "reference_tail_treatment": "right_censored",
   "bootstrap_draws": 100,
   "bootstrap_confidence": 0.95,
   "operational_runtime_ceiling_seconds": 3600,

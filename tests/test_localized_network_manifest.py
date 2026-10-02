@@ -14,6 +14,7 @@ from tools.localized_network_manifest import (
     LOCALIZED_PAIRING_FIELDS,
     expand_localized_jobs,
     load_localized_manifest,
+    localized_data_seed,
     localized_data_seed_key,
     localized_manifest_checksum,
     localized_pairing_keys,
@@ -73,16 +74,19 @@ def test_frozen_manifest_values_and_expansion_counts() -> None:
     assert manifest["certification_combination_budget"] == 1000
     assert manifest["calibration_simulations"] == 25
     assert manifest["calibration_require_reached"] is False
+    assert manifest["reference_tail_treatment"] == "right_censored"
     assert manifest["bootstrap_draws"] == 100
     assert manifest["bootstrap_confidence"] == 0.95
     assert manifest["expected_pairing_keys"] == 810
     assert manifest["expected_rows"] == 1620
     assert manifest["expected_pairing_keys_per_p"] == 270
     assert manifest["expected_rows_per_p"] == 540
+    assert "dataset_digest" not in manifest
 
     jobs = expand_localized_jobs(manifest)
     keys = localized_pairing_keys(manifest)
     assert len(jobs) == 1620
+    assert jobs == expand_localized_jobs(manifest)
     assert len(keys) == 810
     assert Counter(job["arm"] for job in jobs) == {
         "baseline_cap2": 810,
@@ -118,6 +122,20 @@ def test_pairing_key_and_data_seed_key_are_explicit_contracts() -> None:
         assert rows[0]["target"] == rows[1]["target"] == 0.5
         assert localized_data_seed_key(rows[0]) == localized_data_seed_key(rows[1])
 
+    by_seed_key: dict[tuple[int, int, str, int], list[dict[str, object]]] = defaultdict(list)
+    for job in jobs:
+        seed_key = localized_data_seed_key(job)
+        by_seed_key[seed_key].append(job)
+        assert job["data_seed"] == localized_data_seed(manifest["seed"], seed_key)
+        assert "dataset_digest" not in job
+
+    assert len(by_seed_key) == 270
+    for rows in by_seed_key.values():
+        assert len(rows) == 6  # three focal contexts paired across two arms
+        assert len({row["focal_context"] for row in rows}) == 3
+        assert {row["arm"] for row in rows} == {"baseline_cap2", "diagnostic_cap4"}
+        assert len({row["data_seed"] for row in rows}) == 1
+
 
 @pytest.mark.parametrize("p", [20, 40, 60])
 def test_p_shard_contains_only_its_frozen_rows_and_pairing_keys(p: int) -> None:
@@ -152,6 +170,7 @@ def test_manifest_checksum_is_canonical() -> None:
         (("focal_contexts",), ["within_community", "hub_adjacent", "other"]),
         (("conditions",), ["clean", "single_case", "other"]),
         (("condition_settings", "coalition", "shift"), 3.0),
+        (("reference_tail_treatment",), "uncensored"),
         (("expected_pairing_keys",), 809),
         (("expected_rows",), 1618),
         (("expected_pairing_keys_per_p",), 269),
@@ -202,3 +221,15 @@ def test_data_seed_key_excludes_arm_and_focal_context() -> None:
 
     assert localized_data_seed_key(first) == (50, 20, "single_case", 3)
     assert localized_data_seed_key(second) == localized_data_seed_key(first)
+
+
+def test_data_seed_depends_only_on_root_seed_and_data_seed_key() -> None:
+    key = (50, 20, "single_case", 3)
+
+    seed = localized_data_seed(20261002, key)
+    assert seed == localized_data_seed(20261002, key)
+    assert seed != localized_data_seed(20261003, key)
+    assert seed != localized_data_seed(20261002, (100, 20, "single_case", 3))
+    assert seed != localized_data_seed(20261002, (50, 40, "single_case", 3))
+    assert seed != localized_data_seed(20261002, (50, 20, "clean", 3))
+    assert seed != localized_data_seed(20261002, (50, 20, "single_case", 4))
