@@ -120,6 +120,9 @@ def test_v2_records_review_corrections_without_rewriting_v1() -> None:
         "condition_number",
         "awaiting_matched_rerun",
         "matched_rerun_run_id",
+        "distinct run IDs",
+        "github-run.txt",
+        "successful-fit rows must contain the estimated shrinkage",
         "elapsed_seconds",
         "exact match",
     ):

@@ -120,7 +120,12 @@ def _validate_resume_provenance(
     file_hashes = metadata.get("files")
     if not isinstance(file_hashes, dict):
         raise ValueError("existing results metadata has no file checksums")
-    for name in ("results.csv", "shard_status.json"):
+    expected_names = {"results.csv", "shard_status.json"}
+    if (output_dir / "github-run.txt").exists():
+        expected_names.add("github-run.txt")
+    if set(file_hashes) != expected_names:
+        raise ValueError("existing checkpoint has an incompatible file checksum set")
+    for name in expected_names:
         path = output_dir / name
         expected_hash = file_hashes.get(name)
         if not isinstance(expected_hash, str) or not path.is_file():
@@ -221,6 +226,11 @@ def _checkpoint(
             ).hexdigest(),
         },
     }
+    github_run_path = output_dir / "github-run.txt"
+    if github_run_path.is_file():
+        metadata["files"]["github-run.txt"] = hashlib.sha256(
+            github_run_path.read_bytes()
+        ).hexdigest()
     _atomic_write_json(output_dir / "results.metadata.json", metadata)
 
 

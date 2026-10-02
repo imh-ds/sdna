@@ -16,6 +16,9 @@ shrinkage-regularized sample correlation matrix that SDNA inverts. It is
 recorded only when fitting succeeds. Cell summaries report mean, minimum, and
 maximum condition number, each with valid-row and scheduled-row counts. The
 estimated shrinkage intensity (`lambda`) receives the same cell summaries.
+Successful-fit rows must contain the estimated shrinkage, condition number,
+and focal estimate; shrinkage must be within `[0, 1]` and condition number
+positive. Missing values are permitted only when fitting did not complete.
 Fit failures retain missing numerical diagnostics and remain counted in the
 scheduled denominator; they are not encoded as zero.
 
@@ -39,9 +42,13 @@ clean data.
 3. Final `acceptance_status=complete` requires all matrix checks from v1 and an
    exact match of all deterministic row fields. The comparator requires
    identical Git commit, package version, Python version, NumPy version, and
-   manifest checksum across both runs. It excludes only `elapsed_seconds`,
-   which is expected to vary. Missing/invalid shards or any deterministic-field
-   mismatch prevent acceptance and are recorded in `matched_rerun` details.
+   manifest checksum across both runs. Each shard's checksummed `github-run.txt`
+   must identify its workflow, run ID, p shard, ref, and commit; the three
+   shards within a run must share one identity, and the two runs must have
+   distinct run IDs but the same workflow, ref, and commit. The report retains
+   both run IDs. The comparator excludes only `elapsed_seconds`, which is
+   expected to vary. Missing/invalid shards or any deterministic-field mismatch
+   prevent acceptance and are recorded in `matched_rerun` details.
 
 The comparator uses the current CSV schema, including the condition-number
 diagnostic. It does not compare timestamps or infer empirical performance.

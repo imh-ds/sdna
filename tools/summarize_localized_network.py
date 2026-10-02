@@ -168,6 +168,9 @@ def _load_shard(
             "results.csv": _sha256(results_path),
             "shard_status.json": _sha256(status_path),
         }
+        github_run_path = shard_dir / "github-run.txt"
+        if github_run_path.is_file():
+            expected_files["github-run.txt"] = _sha256(github_run_path)
         if files != expected_files:
             raise ValueError("artifact checksums do not match results metadata")
         if status.get("started_at_utc") != metadata["started_at_utc"]:
@@ -320,6 +323,8 @@ def _validate_rows(
                 "planted_absolute_influence_share",
             ):
                 row[field] = _number(row[field], field, optional=True)
+            if row["lambda"] is not None and not 0.0 <= row["lambda"] <= 1.0:
+                raise ValueError("lambda must be within [0, 1]")
             if condition == "clean":
                 try:
                     row["reference_tail_probability"] = _number(
@@ -340,6 +345,14 @@ def _validate_rows(
                     raise ValueError(f"{field} must be within [0, 1]")
             if row["condition_number"] is not None and row["condition_number"] <= 0.0:
                 raise ValueError("condition_number must be positive")
+            fit_completed = (
+                row["workflow_status"] != "error"
+                or row["error_stage"] not in {"generation", "fit", "workflow"}
+            )
+            if fit_completed and any(
+                row[field] is None for field in ("lambda", "condition_number", "observed_rho")
+            ):
+                raise ValueError("successful fits require numerical diagnostics")
             row["elapsed_seconds"] = _number(row["elapsed_seconds"], "elapsed_seconds")
             if row["elapsed_seconds"] < 0:
                 raise ValueError("elapsed_seconds must be nonnegative")
@@ -371,6 +384,14 @@ def _validate_rows(
             influence_error = row["error_stage"] == "influence"
             if influence_error and condition == "clean":
                 raise ValueError("influence errors are only valid for contaminated rows")
+            if influence_error and any(
+                row[field] is not None
+                for field in (
+                    "influence_top_k_precision", "influence_top_k_recall",
+                    "first_planted_reciprocal_rank", "planted_absolute_influence_share",
+                )
+            ):
+                raise ValueError("influence errors must not contain influence metrics")
             if (has_stage_error or influence_error) != (row["workflow_status"] == "error"):
                 raise ValueError("workflow_status does not match stage outcomes")
             expected_workflow_status = (
@@ -379,12 +400,19 @@ def _validate_rows(
                 or row["calibration_status"] == "observed_unreached"
                 else "ok"
             )
-            if not has_stage_error and not influence_error and row["workflow_status"] != expected_workflow_status:
+            if (
+                not has_stage_error
+                and not influence_error
+                and row["workflow_status"] != expected_workflow_status
+            ):
                 raise ValueError("workflow_status does not match completed stages")
             if row["workflow_status"] == "error":
                 if not row["error_stage"] or not row["error_type"]:
                     raise ValueError("workflow errors require stage and type")
-                if row["error_stage"] not in {"generation", "fit", "fragility", "certification", "calibration", "wald", "bootstrap", "influence", "workflow"}:
+                if row["error_stage"] not in {
+                    "generation", "fit", "fragility", "certification", "calibration",
+                    "wald", "bootstrap", "influence", "workflow",
+                }:
                     raise ValueError("error_stage is not recognized")
             elif any(str(row[field]).strip() for field in ("error_stage", "error_type", "error_message")):
                 raise ValueError("non-error workflow rows cannot contain error metadata")
@@ -537,7 +565,10 @@ def compare_localized_network_rerun(
     """Compare deterministic row fields from two complete matched runs."""
     manifest = load_localized_manifest(config_path)
     expected_by_key = {
-        (job["arm"], job["N"], job["p"], job["focal_context"], job["condition"], job["replication"]): job
+        (
+            job["arm"], job["N"], job["p"], job["focal_context"],
+            job["condition"], job["replication"],
+        ): job
         for job in expand_localized_jobs(manifest)
     }
     primary_paths = {Path(path).resolve() for path in primary_shard_dirs}
@@ -567,6 +598,29 @@ def compare_localized_network_rerun(
             observed_p.add(p)
             if issue:
                 issues.append(f"{label} p={p}: {issue}")
+            run_path = Path(path) / "github-run.txt"
+            try:
+                run_fields: dict[str, str] = {}
+                for line in run_path.read_text(encoding="utf-8").splitlines():
+                    name, separator, value = line.partition("=")
+                    if not separator or not name or name in run_fields:
+                        raise ValueError("github-run.txt has malformed or duplicate fields")
+                    run_fields[name] = value
+                if set(run_fields) != {"workflow", "run_id", "p_shard", "ref", "sha"}:
+                    raise ValueError("github-run.txt fields do not match the hosted-run contract")
+                if not run_fields["run_id"].isdigit() or int(run_fields["run_id"]) <= 0:
+                    raise ValueError("GitHub Actions run_id must be a positive integer")
+                run_fields["run_id"] = str(int(run_fields["run_id"]))
+                if int(run_fields["p_shard"]) != p:
+                    raise ValueError("github-run.txt p_shard does not match the shard")
+                if not run_fields["workflow"] or not run_fields["ref"]:
+                    raise ValueError("github-run.txt workflow and ref must be nonempty")
+                if run_fields["sha"] != metadata.get("git_commit"):
+                    raise ValueError("github-run.txt sha does not match results provenance")
+            except (OSError, ValueError) as error:
+                issues.append(f"{label} p={p}: {error}")
+                continue
+            metadata["_github_run"] = run_fields
             metadata_records.append(metadata)
             for row in rows:
                 key = tuple(row[field] for field in _ROW_KEY_FIELDS)
@@ -574,9 +628,15 @@ def compare_localized_network_rerun(
                     issues.append(f"{label}: duplicate row key {key}")
                 row_map[key] = row
         if observed_p != set(manifest["p_values"]):
-            issues.append(f"{label}: expected p shards {manifest['p_values']}, observed {sorted(observed_p)}")
+            issues.append(
+                f"{label}: expected p shards {manifest['p_values']}, "
+                f"observed {sorted(observed_p)}"
+            )
         if len(row_map) != manifest["expected_rows"]:
-            issues.append(f"{label}: expected {manifest['expected_rows']} valid unique rows, found {len(row_map)}")
+            issues.append(
+                f"{label}: expected {manifest['expected_rows']} valid unique rows, "
+                f"found {len(row_map)}"
+            )
         provenance_fields = (
             "git_commit", "package_version", "python_version", "numpy_version", "manifest_checksum"
         )
@@ -586,6 +646,15 @@ def compare_localized_network_rerun(
         }
         if len(identities) != 1:
             issues.append(f"{label}: shard provenance is incomplete or inconsistent")
+        run_identities = {
+            tuple(
+                metadata.get("_github_run", {}).get(field)
+                for field in ("workflow", "run_id", "ref", "sha")
+            )
+            for metadata in metadata_records
+        }
+        if len(run_identities) != 1:
+            issues.append(f"{label}: GitHub Actions run provenance is missing or inconsistent")
         return row_map, metadata_records, issues
 
     primary_rows, primary_metadata, primary_issues = load_run(primary_shard_dirs, "primary")
@@ -599,6 +668,16 @@ def compare_localized_network_rerun(
         rerun_provenance = tuple(rerun_metadata[0].get(field) for field in provenance_fields)
         if primary_provenance != rerun_provenance:
             issues.append("matched runs differ in Git, software, or manifest provenance")
+        primary_run = primary_metadata[0]["_github_run"]
+        rerun_run = rerun_metadata[0]["_github_run"]
+        if (
+            primary_run["workflow"] != rerun_run["workflow"]
+            or primary_run["ref"] != rerun_run["ref"]
+            or primary_run["sha"] != rerun_run["sha"]
+        ):
+            issues.append("matched artifacts differ in GitHub workflow, ref, or commit provenance")
+        if primary_run["run_id"] == rerun_run["run_id"]:
+            issues.append("matched rerun requires distinct GitHub Actions run IDs")
     mismatches: list[dict[str, Any]] = []
     mismatch_count = 0
     if not issues:
@@ -621,6 +700,14 @@ def compare_localized_network_rerun(
         "mismatch_count": mismatch_count,
         "mismatches": mismatches,
         "issues": issues,
+        "primary_run_id": (
+            primary_metadata[0].get("_github_run", {}).get("run_id")
+            if primary_metadata else None
+        ),
+        "rerun_run_id": (
+            rerun_metadata[0].get("_github_run", {}).get("run_id")
+            if rerun_metadata else None
+        ),
         "excluded_from_comparison": ["elapsed_seconds"],
     }
 
@@ -635,11 +722,14 @@ def _markdown(report: Mapping[str, Any]) -> str:
         "",
         "Cap 2 is the primary operating workflow; cap 4 is diagnostic sensitivity evidence.",
         "Incomplete shards and invalid rows are retained in the acceptance accounting.",
-        f"Matched rerun: {report['matched_rerun']['status']} ({report['matched_rerun']['compared_rows']} rows; elapsed_seconds excluded).",
+        f"Matched rerun: {report['matched_rerun']['status']} "
+        f"({report['matched_rerun']['compared_rows']} rows; elapsed_seconds excluded).",
         "",
         "## Cell summaries",
         "",
-        "| N | p | Context | Condition | Arm | Scheduled | Reached | Certified | Clean false flags | Shrinkage mean (valid/scheduled) | Condition number mean [min, max] (valid/scheduled) |",
+        "| N | p | Context | Condition | Arm | Scheduled | Reached | Certified | "
+        "Clean false flags | Shrinkage mean (valid/scheduled) | "
+        "Condition number mean [min, max] (valid/scheduled) |",
         "|---:|---:|---|---|---:|---:|---:|---:|---:|---|---|",
     ]
     for cell in report["cells"]:

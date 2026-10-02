@@ -63,10 +63,12 @@ def _refresh_metadata(shard: Path) -> None:
         "results.csv": _sha(shard / "results.csv"),
         "shard_status.json": _sha(shard / "shard_status.json"),
     }
+    if (shard / "github-run.txt").is_file():
+        metadata["files"]["github-run.txt"] = _sha(shard / "github-run.txt")
     metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
 
 
-def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
+def _make_shards(root: Path, *, outcome: str = "clean", run_id: str = "1001") -> list[Path]:
     manifest = load_localized_manifest(CONFIG)
     jobs = expand_localized_jobs(manifest)
     population_by_p = {p: build_localized_population(p) for p in manifest["p_values"]}
@@ -184,10 +186,10 @@ def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
                     wald_z="",
                     bootstrap_ci_excludes_zero="",
                     bootstrap_rejected_resamples="",
-                    influence_top_k_precision="",
-                    influence_top_k_recall="",
-                    first_planted_reciprocal_rank="",
-                    planted_absolute_influence_share="",
+                influence_top_k_precision="",
+                influence_top_k_recall="",
+                first_planted_reciprocal_rank="",
+                planted_absolute_influence_share="",
                 )
                 if job["replication"] == 1:
                     row.update(
@@ -241,6 +243,12 @@ def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
             "started_at_utc": "2026-10-02T00:00:00+00:00",
         }
         (shard / "shard_status.json").write_text(json.dumps(status), encoding="utf-8")
+        (shard / "github-run.txt").write_text(
+            f"workflow=SDNA localized-network operating-envelope study\n"
+            f"run_id={run_id}\np_shard={p}\nref=refs/heads/codex/task-27-localized-envelope\n"
+            f"sha={'a' * 40}\n",
+            encoding="utf-8",
+        )
         metadata = {
             "study": manifest["study"],
             "git_commit": "a" * 40,
@@ -254,6 +262,7 @@ def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
             "files": {
                 "results.csv": _sha(results),
                 "shard_status.json": _sha(shard / "shard_status.json"),
+                "github-run.txt": _sha(shard / "github-run.txt"),
             },
         }
         (shard / "results.metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
@@ -263,7 +272,13 @@ def _make_shards(root: Path, *, outcome: str = "clean") -> list[Path]:
 
 def _copy_shards(shards: list[Path], root: Path) -> list[Path]:
     root.mkdir(parents=True, exist_ok=True)
-    return [Path(shutil.copytree(shard, root / shard.name)) for shard in shards]
+    copies = [Path(shutil.copytree(shard, root / shard.name)) for shard in shards]
+    for shard in copies:
+        run_path = shard / "github-run.txt"
+        contents = run_path.read_text(encoding="utf-8").replace("run_id=1001", "run_id=1002")
+        run_path.write_text(contents, encoding="utf-8")
+        _refresh_metadata(shard)
+    return copies
 
 
 def test_summary_csv_schema_matches_the_committed_task3_runner() -> None:
@@ -383,6 +398,10 @@ def test_influence_stage_errors_remain_valid_scheduled_outcomes(tmp_path: Path) 
                 error_stage="influence",
                 error_type="RuntimeError",
                 error_message="injected influence failure",
+                    influence_top_k_precision="",
+                    influence_top_k_recall="",
+                    first_planted_reciprocal_rank="",
+                    planted_absolute_influence_share="",
             )
     with results_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=FIELDS)
@@ -405,7 +424,7 @@ def test_matched_rerun_compares_deterministic_fields_but_ignores_timing(
     tmp_path: Path,
 ) -> None:
     primary = _make_shards(tmp_path / "primary")
-    rerun = _make_shards(tmp_path / "rerun")
+    rerun = _make_shards(tmp_path / "rerun", run_id="1002")
     for shard in rerun:
         results_path = shard / "results.csv"
         with results_path.open(newline="", encoding="utf-8") as handle:
@@ -423,11 +442,13 @@ def test_matched_rerun_compares_deterministic_fields_but_ignores_timing(
     assert result["status"] == "matched"
     assert result["compared_rows"] == 1620
     assert result["mismatches"] == []
+    assert result["primary_run_id"] == "1001"
+    assert result["rerun_run_id"] == "1002"
 
 
 def test_matched_rerun_rejects_changed_deterministic_result(tmp_path: Path) -> None:
     primary = _make_shards(tmp_path / "primary")
-    rerun = _make_shards(tmp_path / "rerun")
+    rerun = _make_shards(tmp_path / "rerun", run_id="1002")
     results_path = rerun[0] / "results.csv"
     with results_path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
@@ -448,6 +469,16 @@ def test_matched_rerun_rejects_changed_deterministic_result(tmp_path: Path) -> N
     )
     assert report["acceptance_status"] == "incomplete"
     assert report["matched_rerun"]["status"] == "mismatch"
+
+
+def test_matched_rerun_requires_distinct_github_run_ids(tmp_path: Path) -> None:
+    primary = _make_shards(tmp_path / "primary", run_id="1001")
+    copied_artifacts = _make_shards(tmp_path / "copied", run_id="1001")
+
+    result = compare_localized_network_rerun(primary, copied_artifacts, CONFIG)
+
+    assert result["status"] == "invalid"
+    assert "distinct GitHub Actions run IDs" in result["issues"][0]
 
 
 def test_summarizer_accepts_actual_runner_generation_error_rows(
@@ -471,6 +502,7 @@ def test_summarizer_accepts_actual_runner_generation_error_rows(
 @pytest.mark.parametrize("mutation", [
     "missing_shard", "duplicate", "missing_arm", "seed", "digest", "truth",
     "case_json", "checksum", "commit_format", "commit_mismatch", "condition_number",
+    "influence_error_metrics", "missing_condition_number", "shrinkage_range",
     "generation_error_digest",
 ])
 def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path, mutation: str) -> None:
@@ -553,6 +585,24 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
             }[mutation]
         elif mutation == "condition_number":
             rows[0]["condition_number"] = "0"
+        elif mutation == "missing_condition_number":
+            rows[0]["condition_number"] = ""
+        elif mutation == "shrinkage_range":
+            rows[0]["lambda"] = "1.5"
+        elif mutation == "influence_error_metrics":
+            for row in rows:
+                if (
+                    row["N"] == "50"
+                    and row["condition"] == "single_case"
+                    and row["focal_context"] == "within_community"
+                    and row["replication"] == "0"
+                ):
+                    row.update(
+                        workflow_status="error",
+                        error_stage="influence",
+                        error_type="RuntimeError",
+                        error_message="injected influence failure",
+                    )
         with target.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=FIELDS)
             writer.writeheader()
@@ -578,6 +628,12 @@ def test_invalid_or_missing_artifacts_cannot_be_accepted_complete(tmp_path: Path
         assert any("generation errors must not claim a dataset digest" in item["reason"] for item in report["shard_issues"])
     elif mutation == "condition_number":
         assert any("condition_number must be positive" in item["reason"] for item in report["shard_issues"])
+    elif mutation == "missing_condition_number":
+        assert any("successful fits require numerical diagnostics" in item["reason"] for item in report["shard_issues"])
+    elif mutation == "shrinkage_range":
+        assert any("lambda must be within [0, 1]" in item["reason"] for item in report["shard_issues"])
+    elif mutation == "influence_error_metrics":
+        assert any("influence errors must not contain influence metrics" in item["reason"] for item in report["shard_issues"])
     elif mutation == "duplicate":
         assert report["valid_rows"] == 1620
         assert report["duplicate_arm_pairing_rows"] == 1

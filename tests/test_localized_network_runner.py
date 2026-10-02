@@ -157,6 +157,31 @@ def test_runner_writes_exact_schema_and_paired_provenance(
         assert hashlib.sha256((output / filename).read_bytes()).hexdigest() == expected_digest
 
 
+def test_runner_checkpoints_github_run_provenance_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "hosted-shard"
+    output.mkdir()
+    commit = runner._git_commit()
+    assert commit is not None
+    (output / "github-run.txt").write_text(
+        f"workflow=SDNA localized-network operating-envelope study\n"
+        f"run_id=123456\np_shard=20\nref=refs/heads/codex/task-27-localized-envelope\n"
+        f"sha={commit}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        runner, "run_full_workflow", lambda dataset, **kwargs: _workflow_result(dataset)
+    )
+
+    runner.run_localized_network(CONFIG_PATH, output, 20)
+
+    metadata = json.loads((output / "results.metadata.json").read_text(encoding="utf-8"))
+    assert metadata["files"]["github-run.txt"] == hashlib.sha256(
+        (output / "github-run.txt").read_bytes()
+    ).hexdigest()
+
+
 def test_interruption_keeps_completed_rows_and_incomplete_status(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

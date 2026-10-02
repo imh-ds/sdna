@@ -1212,16 +1212,22 @@ implementation consequence rather than silently changing an earlier record.
 - **Decision:** Preserve the v1 matrix and estimands. Treat a contaminated-row
   influence failure as a valid scheduled workflow error. Record the fitted
   shrinkage-correlation condition number per row and summarize both it and
-  shrinkage by cell with mean, minimum, maximum, and valid/scheduled counts.
+  shrinkage by cell with mean, minimum, maximum, and valid/scheduled counts;
+  successful-fit rows must carry all fit diagnostics and shrinkage must be in
+  `[0, 1]`.
   Make final technical acceptance require a second complete run whose
   deterministic row fields exactly match the baseline, excluding elapsed time;
-  require matching commit and software/configuration provenance. A complete
-  first run is explicitly `awaiting_matched_rerun`, not accepted complete.
+  require matching commit and software/configuration provenance plus
+  checksummed hosted-run metadata with distinct baseline/rerun GitHub Actions
+  run IDs. A complete first run is explicitly `awaiting_matched_rerun`, not
+  accepted complete.
 - **Rationale:** Failure outcomes must remain in the denominator, numerical
   boundary diagnostics must be available where the design promised them, and
   reproducibility should be checked on the actual artifacts rather than
-  inferred only from seed derivation. Runtime is intentionally excluded from
-  exact comparison. No failure or mismatch is converted to zero or dropped.
+  inferred only from seed derivation. Run IDs establish that the artifacts
+  came from distinct hosted workflow executions. Runtime is intentionally
+  excluded from exact comparison. No failure or mismatch is converted to zero
+  or dropped.
 - **Protocol:** The frozen v1 design remains unchanged. The operational
   acceptance method is described in
   `docs/methodology/localized_network_operating_envelope_v2.md`; v1 is retained
