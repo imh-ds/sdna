@@ -307,6 +307,39 @@ def test_generation_error_rows_remain_valid_scheduled_outcomes(tmp_path: Path) -
     assert report["overall"]["workflow_status_counts"]["error"] == 6
 
 
+def test_influence_stage_errors_remain_valid_scheduled_outcomes(tmp_path: Path) -> None:
+    shards = _make_shards(tmp_path / "shards")
+    results_path = shards[0] / "results.csv"
+    with results_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    for row in rows:
+        if (
+            row["N"] == "50"
+            and row["p"] == "20"
+            and row["focal_context"] == "within_community"
+            and row["condition"] == "single_case"
+            and row["replication"] == "0"
+        ):
+            row.update(
+                workflow_status="error",
+                error_stage="influence",
+                error_type="RuntimeError",
+                error_message="injected influence failure",
+            )
+    with results_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    _refresh_metadata(shards[0])
+
+    report = summarize_localized_network(shards, CONFIG, tmp_path / "summary")
+
+    assert report["acceptance_status"] == "complete", report["shard_issues"]
+    assert report["valid_rows"] == 1620
+    assert report["overall"]["workflow_status_counts"]["error"] == 2
+    assert not any(issue["p"] == 20 for issue in report["shard_issues"])
+
+
 def test_summarizer_accepts_actual_runner_generation_error_rows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

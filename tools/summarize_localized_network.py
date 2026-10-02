@@ -365,7 +365,10 @@ def _validate_rows(
                     "wald_status", "bootstrap_status",
                 )
             )
-            if has_stage_error != (row["workflow_status"] == "error"):
+            influence_error = row["error_stage"] == "influence"
+            if influence_error and condition == "clean":
+                raise ValueError("influence errors are only valid for contaminated rows")
+            if (has_stage_error or influence_error) != (row["workflow_status"] == "error"):
                 raise ValueError("workflow_status does not match stage outcomes")
             expected_workflow_status = (
                 "partial"
@@ -373,12 +376,12 @@ def _validate_rows(
                 or row["calibration_status"] == "observed_unreached"
                 else "ok"
             )
-            if not has_stage_error and row["workflow_status"] != expected_workflow_status:
+            if not has_stage_error and not influence_error and row["workflow_status"] != expected_workflow_status:
                 raise ValueError("workflow_status does not match completed stages")
             if row["workflow_status"] == "error":
                 if not row["error_stage"] or not row["error_type"]:
                     raise ValueError("workflow errors require stage and type")
-                if row["error_stage"] not in {"generation", "fit", "fragility", "certification", "calibration", "wald", "bootstrap", "workflow"}:
+                if row["error_stage"] not in {"generation", "fit", "fragility", "certification", "calibration", "wald", "bootstrap", "influence", "workflow"}:
                     raise ValueError("error_stage is not recognized")
             elif any(str(row[field]).strip() for field in ("error_stage", "error_type", "error_message")):
                 raise ValueError("non-error workflow rows cannot contain error metadata")
