@@ -32,7 +32,7 @@ def test_workflow_is_manual_fixed_matrix_and_retains_failed_shards() -> None:
     assert "timeout-minutes: 70" in text
     assert "actions/upload-artifact@" in text
     assert "actions/download-artifact@" in text
-    assert "uses: actions/download-artifact@v8.0.1" in text
+    assert text.count("uses: actions/download-artifact@v8.0.1") == 2
     assert "if: always()" in text
     assert "continue-on-error: true" in text
     assert "tools.run_localized_network" in text

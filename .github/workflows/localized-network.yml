@@ -113,7 +113,7 @@ jobs:
 
       - name: Download baseline shards for matched-rerun acceptance
         if: ${{ inputs.matched_rerun_run_id != '' }}
-        uses: actions/download-artifact@v7.0.1
+        uses: actions/download-artifact@v8.0.1
         with:
           pattern: localized-network-p*-${{ inputs.matched_rerun_run_id }}
           run-id: ${{ inputs.matched_rerun_run_id }}
