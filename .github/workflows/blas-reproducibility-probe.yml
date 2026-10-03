@@ -2,11 +2,6 @@ name: BLAS reproducibility probe (diagnostic)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [codex/task27-p20-diagnosis]
-    paths:
-      - .github/workflows/blas-reproducibility-probe.yml
-      - tools/diagnose_blas_reproducibility.py
 
 permissions:
   contents: read
