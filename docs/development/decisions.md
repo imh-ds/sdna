@@ -1364,3 +1364,23 @@ implementation consequence rather than silently changing an earlier record.
   number about 1.1) so estimates are near null; pooled rows share datasets
   across contexts and arms, so pooled intervals are optimistic; no change to
   production cap, budget, estimator, or defaults. Independent review pending.
+
+### ADR-031 — Composite-score study v2
+
+- **Date/branch:** 2026-10-03, branch `codex/composite-study-v2`.
+- **Why:** v1 tested one contamination type, one edge strength, one `p`, and
+  could not speak to tail-flag power.
+- **Protocol (frozen before results, no amendments):**
+  `docs/methodology/composite_score_study_v2.md`. Run: runner commit
+  `3a90909`, local, 5,760 of 5,760 datasets, 0 workflow errors, 0 cells
+  failing the edge rule.
+- **Findings:** `docs/development/composite_score_evidence_v2.md`. Edge
+  direction/rank recovered at N=50-150 with ceiling skew costing 0.01-0.09
+  edge AUC; exact-LOO finds focal-discordant respondents at 0.64-1.00 under
+  all skew levels, finds straight-liners only without skew and at larger N, and
+  finds random responders only under skew; the tail flag fired for 0 of 927
+  focal-discordant tails (size about 1%).
+- **Not changed:** no production code, default, or earlier protocol.
+- **Unresolved:** one loading/item count/network family, local single-machine
+  run, independent review pending. `docs/methodology/scope_and_evidence_summary.md`
+  updated to match.
