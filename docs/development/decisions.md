@@ -1288,3 +1288,29 @@ implementation consequence rather than silently changing an earlier record.
   passed; compileall passed. The independent reviewer marked the prior state
   `ad19a22` as hold; final re-review of `b0329d9` and hosted PR CI remain
   pending. No hosted study run has occurred.
+
+### ADR-028 — Edge-recovery and Likert-composite viability checks
+
+- **Date/branch:** 2026-10-03, branch `codex/viability-checks` (not yet merged).
+- **Why:** the project had fragility and workflow evidence but no direct test of
+  whether the base estimate is directionally informative at N=50-150, or of how
+  skewed 1-5 composite scores behave. Both were open questions in
+  `ai_handoff_2026-10-03.md`.
+- **Protocols (frozen before results):** `edge_recovery_study_v1.md` and
+  `composite_score_study_v1.md`. The composite protocol received one
+  amendment before any result existed (true edges are the six designed ring
+  pairs, `abs(truth) > 0.05`).
+- **Commits:** `62ed281` (edge-recovery runner), `4e84868` (edge-recovery
+  evidence), `5fd2c59` (composite runner), `2086b7b` (composite evidence).
+- **Findings:** recorded in `edge_recovery_evidence_v1.md` and
+  `composite_score_evidence_v1.md`; summarized in
+  `docs/methodology/scope_and_evidence_summary.md`. Edge direction and rank
+  are preserved at N=50-150 (including ceiling-skewed composites, with modest
+  degradation). Exact-LOO detection of top-category straight-liners is at or
+  below chance under ceiling skew; mixture-subgroup recall in the v0.1 pilot
+  is at its chance level.
+- **Not changed:** no production code, frozen manifest, or acceptance rule.
+  The Task 27 `p = 20` reproducibility mismatch remains open; the handoff
+  records an untested hypothesis only.
+- **Unresolved:** one contamination type, one network, `p = 6`; local runs on
+  Python 3.14.3 / NumPy 2.3.5, not hosted; no independent review yet.
