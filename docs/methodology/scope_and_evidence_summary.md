@@ -1,7 +1,7 @@
 # Scope and evidence summary (plain-language)
 
 Snapshot of what the checked-in simulation evidence does and does not support,
-as of 2026-10-03. Sources: `docs/development/falsification_pilot_evidence_v2.md`,
+as of 2026-10-03 (updated after composite v2 and Task 27 evidence). Sources: `docs/development/falsification_pilot_evidence_v2.md`,
 `edge_recovery_evidence_v1.md`, `composite_score_evidence_v1.md`, and the
 frozen study protocols in `docs/methodology/`. All evidence is simulated, small
 (10-50 replications per cell), and descriptive.
@@ -25,9 +25,11 @@ variable method.
    edge AUC was 0.78-0.94 under moderate ceiling skew, at most about 0.06
    below a matched continuous control. Severe ceiling skew at N=50 is marginal
    (edge AUC 0.73).
-3. **A single respondent shifted on the focal pair is found by exact leave-one-
-   out influence** well above chance (top-1 recall about 0.57 in the v0.1
-   pilot, chance about 1-2%), and a shifted trio about 0.69.
+3. **Respondents extreme on the focal pair are found by exact leave-one-out
+   influence** well above chance: top-1 recall about 0.57 in the v0.1 pilot and
+   0.74-0.81 (single) / 0.66-0.83 (three) in Task 27; in skewed composites,
+   three respondents extreme and discordant on the focal pair were recovered
+   at 0.64-1.00 even under severe skew (chance 0.02-0.06).
 4. **The clean-data tail flag rarely fires** (1/44 in the v0.1 pilot; 2 flags in
    222 finite clean tails in the composite study). This is a descriptive
    rate, not a validated type-I error.
@@ -42,12 +44,17 @@ variable method.
    subgroup scenario, top-k recall was 0.151 against a subgroup fraction of
    about 0.15, which is chance. A subgroup with a different covariance is not a
    few outlying points, so single-case leave-one-out is the wrong tool.
-3. **Top-category straight-liners are not found in ceiling-skewed composites.**
-   Recall was at or below chance under moderate and severe ceiling skew,
-   because an all-5 response vector is typical when many respondents answer
-   near 5. Only one contamination type was tested.
-4. **Fragility flags have little demonstrated power.** In the composite study
-   the tail flag fired in 3 of 122 contaminated finite tails.
+3. **Careless responding is not reliably found by case influence.** In the
+   composite studies, all-top-category straight-liners were not found under
+   ceiling skew (recall at or near 0, because an all-5 response is typical when
+   many answer near 5) and were found only weakly without skew (0.19-0.39 at
+   N=100-150, nearly invisible at 12 composites). Random responders were found
+   only under ceiling skew (0.10-0.34) and not in unskewed data. Detectability
+   depends on how a pattern differs from the sample's typical response.
+4. **Fragility flags have little demonstrated power.** The reference-tail flag
+   fired in 0 of 927 finite tails for respondents extreme on the focal pair, and
+   in about 2% of tails for straight-liners and random responders (size about
+   1% under no contamination).
 5. **Heavy-tailed and highly collinear data** mostly yield no finite fragility
    result under the frozen cap (heavy tails 19/90, collinearity 0/90 reached).
    That is a boundary of the method, not a clean result.
@@ -67,6 +74,8 @@ on these diagnostics.
 ## Open items
 
 - Task 27 hosted reproducibility mismatch at `p = 20` (see the handoff).
-- A composite study v2 with other contamination types (for example a
-  respondent extreme on the focal pair), weaker edges, larger `p`, and
-  reverse-worded items would test the influence-detection claims more fairly.
+- Composite study v2 (other contamination types, weaker edges, `p` = 12) is
+  done; reverse-worded items, acquiescence, other loadings or item counts, and
+  real survey data remain untested.
+- Task 27 hosted evidence is recorded (ADR-030); the p=20 mismatch was resolved
+  by pinning the OpenBLAS kernel (ADR-029).
