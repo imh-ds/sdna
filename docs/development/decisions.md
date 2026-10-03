@@ -1341,6 +1341,30 @@ implementation consequence rather than silently changing an earlier record.
   passes. The pin was verified on the data-generation probe, not on a full
   study run.
 
+### ADR-030 — Task 27 hosted evidence recorded
+
+- **Date/branch:** 2026-10-03, branch `codex/task27-evidence`.
+- **Status:** Task 27 technically accepted (`acceptance_status=complete`,
+  matched rerun with 0 mismatches over 1,620 rows) at commit `b6b70d4`,
+  after the ADR-029 OpenBLAS kernel pin.
+- **Runs:** baseline `37148609781`, matched rerun `37149291740`. Earlier runs
+  `37070756141`, `37072478469`, `37074098652`, `37075156838`, and cancelled
+  `37148484842` are not evidence.
+- **Artifacts:** summary sha256 `cc012a64...9dc0c`; per-shard CSV checksums and
+  all denominators are in
+  `docs/development/localized_network_operating_envelope_evidence_v1.md`.
+- **Findings (frozen grid, 10 datasets per cell):** no stage failures through
+  `p=60`, including `p>N`; cap-2 reach 0.70 clean / 0.83 single / 0.70
+  coalition (reach does not separate clean from contaminated); cap 4 raises
+  reach but certified yield is identical to cap 2 and all 126 budget
+  exhaustions are cap-4 rows; clean false-flag 0/188 (cap 2) and 0/221
+  (cap 4), with no power outcome defined; exact-LOO recall 0.66-0.83 against
+  chance 0.01-0.06.
+- **Limits:** focal truth 0.05 with heavy shrinkage (lambda 0.92-0.98, condition
+  number about 1.1) so estimates are near null; pooled rows share datasets
+  across contexts and arms, so pooled intervals are optimistic; no change to
+  production cap, budget, estimator, or defaults. Independent review pending.
+
 ### ADR-031 — Composite-score study v2
 
 - **Date/branch:** 2026-10-03, branch `codex/composite-study-v2`.
