@@ -16,10 +16,10 @@ EDGE_WEIGHT = 0.35
 DIAGONAL_MARGIN = 0.5
 
 
-def ring_truth(p: int) -> tuple[FloatMatrix, FloatMatrix]:
+def ring_truth(p: int, weight: float = EDGE_WEIGHT) -> tuple[FloatMatrix, FloatMatrix]:
     """Return (covariance, partial correlation) for the alternating-sign ring."""
     edges = {
-        (i, (i + 1) % p): EDGE_WEIGHT * (1.0 if i % 2 == 0 else -1.0) for i in range(p)
+        (i, (i + 1) % p): weight * (1.0 if i % 2 == 0 else -1.0) for i in range(p)
     }
     precision = construct_precision(p, edges, DIAGONAL_MARGIN)
     covariance = np.linalg.inv(precision)
