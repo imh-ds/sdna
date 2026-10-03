@@ -94,3 +94,17 @@ support one of three descriptive statements per outcome: comparable to the
 control, degraded relative to the control, or collapsed to chance. It cannot
 establish performance on real data, other `p`, other item counts, or other
 response-style processes, and does not validate the latent-network estimand.
+
+## Amendment 1 (recorded before any composite-study result was generated)
+
+Found while checking the generator, before running any workflow: measurement
+error and thresholding make every composite-level partial correlation
+non-zero (non-ring pairs are about -0.02 to +0.003), so "true edge = non-zero
+truth" would classify all 15 pairs as edges and leave edge AUC and top-k
+precision undefined. Clarification: the **true-edge set is the six designed
+ring pairs** (composite-level truth about 0.17-0.24 in magnitude); the other
+nine pairs are non-edges. Implemented as `edge_threshold=0.05` on
+`abs(truth)`, which separates the two sets in every condition. Sign agreement
+and magnitude ratio are computed on the six ring pairs against composite-level
+truth signs and magnitudes; rank correlation uses all 15 pairs. No other part
+of the protocol changes.

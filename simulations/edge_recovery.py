@@ -45,19 +45,20 @@ def ordinary_partial_correlation(X: FloatMatrix) -> FloatMatrix | None:
 
 
 def edge_recovery_metrics(
-    estimated: FloatMatrix, truth: FloatMatrix
+    estimated: FloatMatrix, truth: FloatMatrix, edge_threshold: float = TRUE_EDGE_THRESHOLD
 ) -> dict[str, float | None]:
     """Compare estimated and true partial correlations over off-diagonal pairs.
 
     Sign agreement is computed over true edges only. The AUC asks how well
     ``abs(estimate)`` separates true edges from true non-edges. Metrics that need
-    both classes (or non-constant inputs) are None rather than zero.
+    both classes (or non-constant inputs) are None rather than zero. A pair is a
+    true edge when ``abs(truth) > edge_threshold``.
     """
     if estimated.shape != truth.shape or estimated.shape[0] != estimated.shape[1]:
         raise ValueError("estimated and truth must be square and equal-shaped")
     upper = np.triu_indices(truth.shape[0], k=1)
     est, true = estimated[upper], truth[upper]
-    is_edge = np.abs(true) > TRUE_EDGE_THRESHOLD
+    is_edge = np.abs(true) > edge_threshold
     n_edges = int(is_edge.sum())
 
     sign_agreement: float | None = None
@@ -90,16 +91,18 @@ def edge_recovery_metrics(
     }
 
 
-def recovery_row(X: FloatMatrix, truth: FloatMatrix) -> dict[str, float | None]:
+def recovery_row(
+    X: FloatMatrix, truth: FloatMatrix, edge_threshold: float = TRUE_EDGE_THRESHOLD
+) -> dict[str, float | None]:
     """Shrinkage-estimator and ordinary-partial recovery metrics on one dataset."""
     fitted = fit_network(X)
-    shrunk = edge_recovery_metrics(fitted.partial_correlation, truth)
+    shrunk = edge_recovery_metrics(fitted.partial_correlation, truth, edge_threshold)
     row: dict[str, float | None] = {"lambda": fitted.shrinkage}
     row.update({f"shrunk_{key}": value for key, value in shrunk.items() if key != "n_true_edges"})
     row["n_true_edges"] = shrunk["n_true_edges"]
     ordinary = ordinary_partial_correlation(X)
     ordinary_metrics = (
-        edge_recovery_metrics(ordinary, truth) if ordinary is not None else None
+        edge_recovery_metrics(ordinary, truth, edge_threshold) if ordinary is not None else None
     )
     for key in ("sign_agreement", "rank_correlation", "edge_auc", "top_k_precision",
                 "magnitude_ratio"):

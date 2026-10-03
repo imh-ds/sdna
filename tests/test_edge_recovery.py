@@ -75,3 +75,13 @@ def test_recovery_row_has_shrunk_and_ordinary_fields() -> None:
     assert 0.0 <= row["lambda"] <= 1.0  # type: ignore[operator]
     assert "shrunk_sign_agreement" in row and "ordinary_edge_auc" in row
     assert row["n_true_edges"] == 2.0
+
+
+def test_edge_threshold_separates_designed_edges_from_tiny_nonzero_truth() -> None:
+    truth = _truth()
+    truth[0, 2] = truth[2, 0] = -0.015
+    estimated = truth.copy()
+
+    assert edge_recovery_metrics(estimated, truth)["n_true_edges"] == 3.0
+    assert edge_recovery_metrics(estimated, truth, edge_threshold=0.05)["n_true_edges"] == 2.0
+    assert edge_recovery_metrics(estimated, truth, edge_threshold=0.05)["edge_auc"] == 1.0
