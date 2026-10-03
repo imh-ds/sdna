@@ -1,0 +1,47 @@
+name: BLAS reproducibility probe (diagnostic)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe ${{ matrix.coretype }} #${{ matrix.repeat }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        coretype: [native, Haswell]
+        repeat: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Run probe
+        env:
+          CORETYPE: ${{ matrix.coretype }}
+          OUT_DIR: ${{ runner.temp }}/blas-probe
+        run: |
+          mkdir -p "$OUT_DIR"
+          if [ "$CORETYPE" != "native" ]; then export OPENBLAS_CORETYPE="$CORETYPE"; fi
+          python -m tools.diagnose_blas_reproducibility "$OUT_DIR/probe.json"
+
+      - name: Upload probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: blas-probe-${{ matrix.coretype }}-${{ matrix.repeat }}
+          path: ${{ runner.temp }}/blas-probe/probe.json
+          if-no-files-found: error

@@ -47,6 +47,14 @@ def test_workflow_is_manual_fixed_matrix_and_retains_failed_shards() -> None:
     assert "if-no-files-found:" not in download_step
 
 
+def test_shard_job_pins_the_openblas_kernel_for_cross_runner_reproducibility() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    shard_job = text.split("  shards:\n", maxsplit=1)[1].split("\n  aggregate:", maxsplit=1)[0]
+    aggregate_job = text.split("  aggregate:\n", maxsplit=1)[1]
+
+    assert re.search(r"(?m)^    env:\n      OPENBLAS_CORETYPE: Haswell$", shard_job)
+    assert "OPENBLAS_CORETYPE" not in aggregate_job
+
 def test_workflow_matches_frozen_manifest_and_incomplete_artifact_behavior() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))

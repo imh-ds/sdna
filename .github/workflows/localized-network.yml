@@ -18,6 +18,8 @@ jobs:
     name: Run localized-network shard p=${{ matrix.p }}
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    env:
+      OPENBLAS_CORETYPE: Haswell
     strategy:
       fail-fast: false
       matrix:
