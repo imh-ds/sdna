@@ -432,3 +432,27 @@ data bit-identical across all observed CPU models. See
 `docs/development/task27_p20_reproducibility_diagnosis.md` and ADR-029. Next:
 merge the pin, then dispatch a fresh baseline and matched rerun of
 `localized-network.yml` at the merged commit.
+
+## Addendum 3: status after PRs #26-#29 (all merged to `main`)
+
+- **Task 27 is technically accepted** (ADR-029 pin, ADR-030 evidence): baseline
+  run `37148609781` and matched rerun `37149291740` at `b6b70d4`, 0 mismatches
+  over 1,620 rows. Priority 1 above is done. The failed runs listed earlier are
+  not evidence.
+- **Edge recovery, composite v1 and v2** (ADR-028, ADR-031) are done and
+  summarized in `docs/methodology/scope_and_evidence_summary.md`. Priority 2
+  above is done for the tested designs (five-item composites, `p` 6 and 12,
+  strong/weak edges, three contamination types).
+- **Net reading for the stated use case:** the network estimate is directionally
+  informative at N=50-150, including under ceiling skew; exact case influence
+  finds respondents extreme on the focal pair but not top-category
+  straight-liners or (without skew) random responders; the reference-tail flag
+  and reach are not reliable contamination detectors.
+- **Still open:** no independent review of the PR #26/#28/#29 interpretations;
+  untested designs (reverse-worded items, acquiescence, other loadings/item
+  counts, missing data, ordinal estimator, real survey data); a mixture-subgroup
+  case-influence tool would need a different method, not tuning.
+- **Housekeeping:** remote branches from merged work (for example
+  `codex/viability-checks`, `codex/task27-p20-diagnosis`, `codex/task27-evidence`,
+  `codex/composite-study-v2`) have not been deleted; older task worktrees under
+  `.worktrees/` remain.
