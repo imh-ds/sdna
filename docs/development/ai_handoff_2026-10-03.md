@@ -422,3 +422,13 @@ first. Priority 2 of this handoff is therefore done for one design (p = 6,
 five-item composites, one contamination type); a v2 with other contamination
 types and weaker edges is the suggested follow-up. Priority 1 (Task 27 `p = 20`
 mismatch) is still open and untouched.
+
+## Addendum 2: Task 27 p=20 diagnosis result
+
+The degenerate-spectrum hypothesis above was **refuted** (singular-value gaps
+are distinct). The cause is CPU-dependent OpenBLAS kernel dispatch on
+heterogeneous hosted runners; pinning `OPENBLAS_CORETYPE=Haswell` made seeded
+data bit-identical across all observed CPU models. See
+`docs/development/task27_p20_reproducibility_diagnosis.md` and ADR-029. Next:
+merge the pin, then dispatch a fresh baseline and matched rerun of
+`localized-network.yml` at the merged commit.

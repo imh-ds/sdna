@@ -1314,3 +1314,29 @@ implementation consequence rather than silently changing an earlier record.
   records an untested hypothesis only.
 - **Unresolved:** one contamination type, one network, `p = 6`; local runs on
   Python 3.14.3 / NumPy 2.3.5, not hosted; no independent review yet.
+
+### ADR-029 — Task 27 p=20 reproducibility mismatch: BLAS kernel pinning
+
+- **Date/branch:** 2026-10-03, branch `codex/task27-p20-diagnosis`.
+- **Problem:** hosted baseline `37074098652` and matched rerun `37075156838`
+  (commit `f48f18a`) mismatched on all 540 `p = 20` rows (`dataset_digest`
+  differed) and none of the `p = 40`/`p = 60` rows.
+- **Finding:** NumPy's OpenBLAS dispatches kernels by CPU model, and
+  GitHub-hosted runners are heterogeneous. Hosted probe run `37145105026`
+  showed two output families at every `p` under native dispatch and a single
+  bit-identical output across 10 runs and 4 CPU models with
+  `OPENBLAS_CORETYPE=Haswell`. The degenerate-spectrum hypothesis in the
+  handoff was refuted (singular-value gaps at least 6.9e-5). Details:
+  `docs/development/task27_p20_reproducibility_diagnosis.md`.
+- **Decision:** pin `OPENBLAS_CORETYPE=Haswell` in the Task 27 shard job.
+  Environment-only change; manifest, DGP, runner and validator schemas, and
+  the exact-match acceptance rule are unchanged. The earlier failed runs remain
+  failed and unusable as evidence.
+- **Files:** `.github/workflows/localized-network.yml`,
+  `tests/test_localized_network_workflow.py`,
+  `tools/diagnose_blas_reproducibility.py`,
+  `.github/workflows/blas-reproducibility-probe.yml`.
+- **Pending:** fresh baseline and matched rerun at the merged commit; the
+  Task 27 evidence report and decision addendum follow only if exact matching
+  passes. The pin was verified on the data-generation probe, not on a full
+  study run.
