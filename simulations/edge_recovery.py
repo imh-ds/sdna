@@ -6,11 +6,27 @@ import numpy as np
 from numpy.typing import NDArray
 
 from sdna.estimation import fit_network
+from simulations.dgp import construct_precision
 from simulations.metrics import auc, spearman_correlation
 
 FloatMatrix = NDArray[np.float64]
 
 TRUE_EDGE_THRESHOLD = 1e-8
+EDGE_WEIGHT = 0.35
+DIAGONAL_MARGIN = 0.5
+
+
+def ring_truth(p: int) -> tuple[FloatMatrix, FloatMatrix]:
+    """Return (covariance, partial correlation) for the alternating-sign ring."""
+    edges = {
+        (i, (i + 1) % p): EDGE_WEIGHT * (1.0 if i % 2 == 0 else -1.0) for i in range(p)
+    }
+    precision = construct_precision(p, edges, DIAGONAL_MARGIN)
+    covariance = np.linalg.inv(precision)
+    scale = np.sqrt(np.outer(np.diag(precision), np.diag(precision)))
+    partial = -precision / scale
+    np.fill_diagonal(partial, 1.0)
+    return covariance, partial
 
 
 def ordinary_partial_correlation(X: FloatMatrix) -> FloatMatrix | None:

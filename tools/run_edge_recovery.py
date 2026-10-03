@@ -10,29 +10,13 @@ from typing import Any
 
 import numpy as np
 
-from simulations.dgp import construct_precision
-from simulations.edge_recovery import recovery_row
+from simulations.edge_recovery import ring_truth, recovery_row
 
 SEED = 20261003
 P_VALUES = (5, 8, 12)
 N_VALUES = (50, 100, 150)
 REPLICATIONS = 200
-EDGE_WEIGHT = 0.35
-DIAGONAL_MARGIN = 0.5
 METRICS = ("sign_agreement", "rank_correlation", "edge_auc", "top_k_precision", "magnitude_ratio")
-
-
-def ring_truth(p: int) -> tuple[np.ndarray, np.ndarray]:
-    """Return (covariance, partial correlation) for the alternating-sign ring."""
-    edges = {
-        (i, (i + 1) % p): EDGE_WEIGHT * (1.0 if i % 2 == 0 else -1.0) for i in range(p)
-    }
-    precision = construct_precision(p, edges, DIAGONAL_MARGIN)
-    covariance = np.linalg.inv(precision)
-    scale = np.sqrt(np.outer(np.diag(precision), np.diag(precision)))
-    partial = -precision / scale
-    np.fill_diagonal(partial, 1.0)
-    return covariance, partial
 
 
 def run(replications: int = REPLICATIONS) -> list[dict[str, Any]]:
