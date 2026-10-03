@@ -414,3 +414,11 @@ Other controlling/evidence files:
 > user's intended low-sample localized diagnostic; do not change production
 > behavior or broaden claims before the design and evidence are reviewed.
 
+## Addendum (later 2026-10-03): viability checks completed on `codex/viability-checks`
+
+Edge-recovery and Likert-composite studies were pre-specified, run locally, and
+documented (ADR-028). Read `docs/methodology/scope_and_evidence_summary.md`
+first. Priority 2 of this handoff is therefore done for one design (p = 6,
+five-item composites, one contamination type); a v2 with other contamination
+types and weaker edges is the suggested follow-up. Priority 1 (Task 27 `p = 20`
+mismatch) is still open and untouched.
