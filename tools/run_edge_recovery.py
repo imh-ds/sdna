@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 
-from simulations.edge_recovery import ring_truth, recovery_row
+from simulations.edge_recovery import recovery_row, ring_truth
 
 SEED = 20261003
 P_VALUES = (5, 8, 12)

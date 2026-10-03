@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 
 import numpy as np
 from numpy.typing import NDArray
@@ -58,7 +58,7 @@ def _composites(latent: FloatMatrix, condition: str) -> FloatMatrix:
     return np.asarray(categories.mean(axis=2), dtype=float)
 
 
-@lru_cache(maxsize=None)
+@cache
 def composite_truth(
     condition: str, draws: int = TRUTH_DRAWS
 ) -> tuple[FloatMatrix, FloatMatrix, FloatMatrix]:
