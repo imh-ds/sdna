@@ -34,6 +34,13 @@ variable method.
    222 finite clean tails in the composite study). This is a descriptive
    rate, not a validated type-I error.
 
+5. **Small-sample dense estimate versus EBICglasso-style selection.** Against a
+   Python approximation of EBICglasso (not validated against `qgraph`), SDNA's
+   dense estimate ranked true edges clearly better in 76 of 84 cells and was
+   never clearly worse; EBIC-py returned an empty network in 91-96% of
+   Gaussian datasets at N=30-50 and still 14-52% at N=300 for weak or skewed
+   cases (`estimator_comparison_evidence_v1.md`).
+
 ## What the evidence does not support
 
 1. **Reach is not a contamination detector.** A 50% attenuation within two
@@ -60,6 +67,11 @@ variable method.
    That is a boundary of the method, not a clean result.
 6. **Raw ordinal items, missing data, dependent observations, other `p` or
    item counts, reverse-worded items and response styles are untested.**
+7. **A better estimator than other dense methods.** Ranking edges by the
+   graphical-lasso path matches SDNA within about 0.01 edge AUC, and SDNA beats
+   the unshrunk partial correlation by only 0.01-0.04. The gap to EBICglasso is
+   due to its conservative edge selection, not to a more accurate dense estimate.
+   Not tested: `p >= N - 1`, `qgraph`/BGGM, and other selection rules.
 
 ## Practical reading for a low-N survey network
 
