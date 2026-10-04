@@ -22,7 +22,7 @@ influence diagnostics.
    `qgraph::EBICglasso` / `bootnet` defaults, not that code. Sample correlation
    matrix `S`; 100 penalties log-spaced from `max abs offdiag(S)` down to
    `0.01 x` that value; `sklearn.covariance.graphical_lasso` at each penalty
-   with warm starts; select the penalty minimizing
+   (cold starts, public API); select the penalty minimizing
    `EBIC = -2L + E log n + 4 gamma E log p`, with
    `L = n/2 (log det K - tr(S K))`, `E` the number of nonzero upper-triangle
    entries of `K`, and `gamma = 0.5`; output partial correlations
