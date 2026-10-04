@@ -52,7 +52,7 @@ def path_scores(X: Any, n_lambda: int = 100, ratio: float = 0.01) -> Any:
 
 
 def _job(args: tuple[Any, ...]) -> dict[str, Any]:
-    (p, strength, n, rep), child = args
+    (p, strength, n, _rep), child = args
     seed = int(child.generate_state(1, dtype=np.uint32)[0])
     covariance, truth = ring_truth(p, STRENGTHS[strength])
     X = np.random.default_rng(seed).multivariate_normal(np.zeros(p), covariance, size=n)
