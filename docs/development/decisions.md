@@ -1384,3 +1384,23 @@ implementation consequence rather than silently changing an earlier record.
 - **Unresolved:** one loading/item count/network family, local single-machine
   run, independent review pending. `docs/methodology/scope_and_evidence_summary.md`
   updated to match.
+
+### ADR-032 — Estimator comparison: SDNA versus an EBICglasso approximation
+
+- **Date/branch:** 2026-10-03, branch `codex/estimator-comparison`.
+- **Why:** the project's stated aim is to be more informative than
+  EBICglasso/Bayesian networks at N below about 200. This had never been tested.
+- **Protocol (frozen before results):**
+  `docs/methodology/estimator_comparison_study_v1.md`; run at runner commit
+  `907cdab`, local, 8,400 of 8,400 datasets, 84 cells.
+- **Findings:** `docs/development/estimator_comparison_evidence_v1.md`. SDNA's
+  dense estimate ranked true edges clearly better than EBIC-py in 76 of 84
+  cells and was never clearly worse; EBIC-py was empty in 91-96% of Gaussian
+  datasets at N=30-50. A post-hoc check (labeled exploratory) showed that
+  ranking by the graphical-lasso path matches SDNA within about 0.01 AUC, and
+  SDNA beats the unshrunk partial correlation by only 0.01-0.04, so the gap is
+  EBIC's conservative selection, not a more accurate estimator.
+- **Limits:** EBIC-py is a Python approximation (diagonal penalized, not
+  validated against `qgraph`); no BGGM; no `p >= N - 1`; no real data;
+  independent review pending. scikit-learn was added to the `dev` extra.
+- **Not changed:** no production code or default.

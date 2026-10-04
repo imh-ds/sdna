@@ -44,6 +44,19 @@ def ordinary_partial_correlation(X: FloatMatrix) -> FloatMatrix | None:
     return np.asarray(partial, dtype=float)
 
 
+def _tie_aware_top_k_precision(scores: FloatMatrix, is_edge: NDArray[np.bool_]) -> float:
+    """Top-k precision (k = number of true edges) with expected credit for tied scores."""
+    k = int(is_edge.sum())
+    cutoff = np.sort(scores)[::-1][k - 1]
+    above = scores > cutoff
+    tied = scores == cutoff
+    remaining = k - int(above.sum())
+    expected = float(is_edge[above].sum())
+    if tied.any():
+        expected += remaining * float(is_edge[tied].sum()) / float(tied.sum())
+    return expected / k
+
+
 def edge_recovery_metrics(
     estimated: FloatMatrix, truth: FloatMatrix, edge_threshold: float = TRUE_EDGE_THRESHOLD
 ) -> dict[str, float | None]:
@@ -73,8 +86,7 @@ def edge_recovery_metrics(
     top_k_precision: float | None = None
     if 0 < n_edges < est.size:
         edge_auc = auc(is_edge.astype(int), np.abs(est))
-        top = np.argsort(-np.abs(est), kind="stable")[:n_edges]
-        top_k_precision = float(np.mean(is_edge[top]))
+        top_k_precision = _tie_aware_top_k_precision(np.abs(est), is_edge)
 
     edge_mask = is_edge
     magnitude_ratio: float | None = None
